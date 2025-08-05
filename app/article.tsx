@@ -327,7 +327,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    borderRadius: 8,
   },
   firstImageWrapper: { // New base style for image wrapper
     width: '100%',
@@ -342,7 +341,6 @@ const styles = StyleSheet.create({
   firstImage: { // New base style for image
     width: '100%',
     height: 200, // Default height for mobile
-    borderRadius: 8,
   },
   desktopFirstImage: { // Desktop specific overrides
     height: 400, // Larger height for desktop
