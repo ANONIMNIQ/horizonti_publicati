@@ -1,7 +1,16 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
 }

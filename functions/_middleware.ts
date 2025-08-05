@@ -1,5 +1,3 @@
-import type { PagesFunction } from '@cloudflare/workers-types';
-
 interface Env {
   ASSETS: {
     fetch: (request: Request) => Promise<Response>;

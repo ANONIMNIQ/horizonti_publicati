@@ -1,9 +1,8 @@
 import { load } from 'cheerio';
 
-// This defines the type for the function's context, specific to Cloudflare Pages.
 interface Env {}
 
-export const onRequestGet = async ({ request }: { request: Request }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
   const url = new URL(request.url);
   const articleUrl = url.searchParams.get('articleUrl');
 
@@ -30,15 +29,19 @@ export const onRequestGet = async ({ request }: { request: Request }) => {
 
     const embeds: string[] = [];
     
-    // Select all common embed wrappers from Medium
-    $('iframe, blockquote.twitter-tweet, .gist').each((i, el) => {
-      // We get the outer HTML of the element
-      embeds.push($.html(el));
+    // Use a more specific selector. Medium wraps embeds in <figure> tags.
+    // We select all figures, then filter for those containing an iframe.
+    // We also select Twitter and Gist embeds directly.
+    $('figure, blockquote.twitter-tweet, .gist').each((i, el) => {
+      const element = $(el);
+      // Check if the element is a figure containing an iframe, or if it's a tweet/gist.
+      if ((element.is('figure') && element.find('iframe').length > 0) || element.is('blockquote.twitter-tweet, .gist')) {
+        embeds.push($.html(el));
+      }
     });
 
     const hasTwitterEmbed = $('blockquote.twitter-tweet').length > 0;
 
-    // Allow requests from any origin for local development
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
