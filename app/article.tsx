@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   firstImage: {
     width: '100%',
-    height: 450, // Increased height for a more square-like appearance
+    height: 550, // Increased height for a more square-like appearance
     resizeMode: 'cover',
   },
 });
