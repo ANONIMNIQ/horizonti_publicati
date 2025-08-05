@@ -1,3 +1,4 @@
+/// <reference types="@cloudflare/workers-types" />
 import { load } from 'cheerio';
 
 interface Env {}

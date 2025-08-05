@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 interface Env {
   ASSETS: {
     fetch: (request: Request) => Promise<Response>;
