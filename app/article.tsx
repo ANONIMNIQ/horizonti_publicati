@@ -343,6 +343,8 @@ export default function ArticleScreen() {
 
   const [firstMediaData, setFirstMediaData] = useState<{ type: 'img' | 'iframe' | null; src: string; alt?: string; width?: string; height?: string } | null>(null);
   const [contentHtml, setContentHtml] = useState('');
+  const [embeds, setEmbeds] = useState<string[]>([]);
+  const [isLoadingEmbeds, setIsLoadingEmbeds] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -436,6 +438,58 @@ export default function ArticleScreen() {
 
     setContentHtml(processedContentHtml);
   }, [articleString, colorScheme]); // Add colorScheme to dependencies
+
+  // Effect to fetch embeds from our Cloudflare function
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !articleString) {
+      setIsLoadingEmbeds(false);
+      return;
+    }
+
+    const article: Article = JSON.parse(articleString);
+    if (!article.link) {
+      setIsLoadingEmbeds(false);
+      return;
+    }
+
+    const fetchEmbeds = async () => {
+      setIsLoadingEmbeds(true);
+      try {
+        // On local dev, this might need the full URL. On Cloudflare Pages, relative path is fine.
+        const apiUrl = `/api/get-embeds?articleUrl=${encodeURIComponent(article.link)}`;
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch embeds');
+        }
+
+        const data = await response.json();
+        if (data.embeds) {
+          setEmbeds(data.embeds);
+        }
+
+        // If there are Twitter embeds, we need to load their script
+        if (data.hasTwitterEmbed) {
+          const scriptId = 'twitter-wjs';
+          if (!document.getElementById(scriptId)) {
+            const script = document.createElement('script');
+            script.id = scriptId;
+            script.src = "https://platform.twitter.com/widgets.js";
+            script.async = true;
+            script.charset = "utf-8";
+            document.body.appendChild(script);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching embeds:", error);
+        setEmbeds([]); // Clear embeds on error
+      } finally {
+        setIsLoadingEmbeds(false);
+      }
+    };
+
+    fetchEmbeds();
+  }, [articleString]);
 
   // Effect to apply dark mode class to body for web
   useEffect(() => {
@@ -720,6 +774,24 @@ export default function ArticleScreen() {
                   </Pressable>
                 </View>
               </View>
+            )}
+          </View>
+        )}
+
+        {Platform.OS === 'web' && (embeds.length > 0 || isLoadingEmbeds) && (
+          <View style={[styles.embedsSection, isDesktopWeb && styles.desktopEmbedsSection]}>
+            <View style={[styles.metaSeparator, { backgroundColor: Colors[colorScheme].cardBorder, marginBottom: 32 }]} />
+            {isLoadingEmbeds ? (
+              <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+            ) : (
+              embeds.map((embedHtml, index) => (
+                <WebHtmlRenderer
+                  key={index}
+                  htmlContent={embedHtml}
+                  className="article-embed"
+                  style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
+                />
+              ))
             )}
           </View>
         )}
@@ -1027,5 +1099,12 @@ const styles = StyleSheet.create({
   },
   desktopDateSection: {
     marginRight: 20,
+  },
+  embedsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  desktopEmbedsSection: {
+    paddingHorizontal: 16,
   },
 });

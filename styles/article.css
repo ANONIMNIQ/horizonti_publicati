@@ -116,6 +116,19 @@
   font-family: monospace;
 }
 
+/* Styles for the new embeds section */
+.article-embed {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.article-embed iframe {
+  max-width: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
 /* Dark mode adjustments (example - actual colors from Colors.ts) */
 body.dark-mode .article-content {
   color: #eee; /* Lighter text for dark mode */
