@@ -25,6 +25,8 @@ import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from 
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
 import '../styles/article.css';
 
+const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
+
 // Define a type for the fetched embed data from the API
 interface EmbedData {
   embedHtml: string;
@@ -39,7 +41,6 @@ export default function ArticleScreen() {
   const router = useRouter();
 
   const [processedHtml, setProcessedHtml] = useState('');
-  const [firstImageUrl, setFirstImageUrl] = useState<string | null>(null); // New state for the first image
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const hasTwitterScriptLoaded = useRef(false);
 
@@ -54,24 +55,7 @@ export default function ArticleScreen() {
       return;
     }
 
-    let originalHtml = article['content:encoded'];
-    let currentFirstImageUrl: string | null = null;
-
-    // Extract and remove the first image for web
-    if (Platform.OS === 'web') {
-      const firstImageMatch = originalHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
-      if (firstImageMatch) {
-        currentFirstImageUrl = firstImageMatch[1];
-        setFirstImageUrl(currentFirstImageUrl);
-        // Remove the matched image tag from the HTML content
-        originalHtml = originalHtml.replace(firstImageMatch[0], '');
-      } else {
-        setFirstImageUrl(null);
-      }
-    } else {
-      setFirstImageUrl(null); // Ensure it's null for native
-    }
-
+    const originalHtml = article['content:encoded'];
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     
     const mediaUrls: { url: string; placeholderId: string }[] = [];
@@ -237,13 +221,6 @@ export default function ArticleScreen() {
           </View>
         </View>
 
-        {/* Render the first image separately for web */}
-        {Platform.OS === 'web' && firstImageUrl && (
-          <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
-            <Image source={{ uri: firstImageUrl }} style={styles.firstImage} resizeMode="cover" />
-          </View>
-        )}
-
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
@@ -255,7 +232,7 @@ export default function ArticleScreen() {
               <WebHtmlRenderer
                 htmlContent={processedHtml}
                 className="article-content"
-                // Removed style prop for paddingLeft, now handled by desktopArticleBodyWrapper
+                style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
               />
             )}
           </View>
@@ -292,7 +269,7 @@ const styles = StyleSheet.create({
   contentContainer: { paddingHorizontal: 20 },
   desktopContentContainer: { paddingHorizontal: 16 },
   titleAndMetaWrapper: {},
-  desktopTitleAndMetaWrapper: { alignSelf: 'flex-end', width: '100%' }, // Changed to flex-end
+  desktopTitleAndMetaWrapper: { alignSelf: 'center', width: '100%' },
   title: { fontSize: 20, fontWeight: '500', marginBottom: 12, lineHeight: 28 },
   desktopTitle: { fontSize: 40, fontWeight: 'bold', lineHeight: 48, marginBottom: 16 },
   container: { flex: 1 },
@@ -311,15 +288,11 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 13, fontWeight: '400' },
   metaSeparator: { height: 2, width: '100%', marginBottom: 24 },
   articleBodyWrapper: {},
-  desktopArticleBodyWrapper: {
-    width: DESKTOP_TEXT_CONTENT_WIDTH, // Fixed width for text column
-    alignSelf: 'flex-end', // Changed to flex-end
-  },
+  desktopArticleBodyWrapper: { width: '100%', alignItems: 'flex-start' },
   commentsButtonWrapper: { marginTop: 24, marginBottom: 40, alignItems: 'center' },
-  desktopCommentsButtonWrapper: {
-    width: DESKTOP_TEXT_CONTENT_WIDTH, // Fixed width for button
-    alignSelf: 'flex-end', // Changed to flex-end
-  },
+  desktopCommentsButtonWrapper: { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET },
+  commentsButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  commentsButtonText: { fontSize: 14, fontWeight: '600' },
   bottomButtonContainer: { position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center', zIndex: 10 },
   desktopBottomButtonContainer: { maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, alignSelf: 'center', left: 'auto', right: 'auto', paddingHorizontal: 16 },
   bottomButtonBlurView: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.18)' },
@@ -334,21 +307,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     borderRadius: 8,
-  },
-  // New styles for the first image
-  firstImageWrapper: {
-    width: '100%',
-    marginBottom: 24, // Space after the image
-  },
-  desktopFirstImageWrapper: {
-    maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
-    alignSelf: 'center',
-    paddingHorizontal: 16, // Match content container padding
-  },
-  firstImage: {
-    width: '100%',
-    height: 250, // Example height, adjust as needed
-    resizeMode: 'cover',
-    borderRadius: 0, // Ensure no rounded corners
   },
 });
