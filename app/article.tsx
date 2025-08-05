@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ScrollView,
   View,
@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import RenderHTML, { TNode } from 'react-native-render-html';
+import RenderHTML, { TNode, HTMLContentModel, CustomRendererProps } from 'react-native-render-html';
 import { decode } from 'html-entities';
 import WebView from 'react-native-webview';
 import { Article } from '@/types';
@@ -30,46 +30,18 @@ import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
 
-function getYouTubeEmbedUrl(url: string): string | null {
-  const videoId = getYouTubeVideoId(url);
-  if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}?autoplay=0&modestbranding=1&rel=0`;
-  }
-  return null;
+// Define a type for the fetched embed data from the API
+interface EmbedData {
+  embedHtml: string;
+  isTwitterEmbed: boolean;
 }
 
-function IframeRenderer({ tnode }: { tnode: TNode }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const colorScheme = useColorScheme() ?? 'light';
-  const [isLoading, setIsLoading] = useState(true);
-  const { isDesktopWeb } = useResponsiveLayout();
-
-  const { src, height, width: initialWidth } = tnode.attributes;
-  const renderHtmlContentWidth = isDesktopWeb ? DESKTOP_TEXT_CONTENT_WIDTH : screenWidth - 40;
-  const aspectRatio = initialWidth && height ? parseInt(height, 10) / parseInt(initialWidth, 10) : 9 / 16;
-  const webViewHeight = renderHtmlContentWidth * aspectRatio;
-
-  if (!src) return null;
-
-  return (
-    <View style={[{ width: '100%', height: webViewHeight, marginBottom: 16, overflow: 'hidden', alignSelf: 'flex-start' }]}>
-      {isLoading && (
-        <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
-          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-        </View>
-      )}
-      <WebView
-        source={{ uri: src }}
-        style={{ flex: 1, opacity: isLoading ? 0 : 0.99 }}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowsFullscreenVideo={true}
-        onLoadEnd={() => setIsLoading(false)}
-      />
-    </View>
-  );
+// Define the extraData interface for RenderHTML
+interface ArticleRenderExtraData {
+  fetchedEmbeds: Record<string, string>;
 }
 
+// Custom renderer for images (already exists, keeping for context)
 function ImageRenderer({ tnode }: { tnode: TNode }) {
   const { src, alt } = tnode.attributes;
   const { width: screenWidth } = useWindowDimensions();
@@ -114,9 +86,70 @@ function ImageRenderer({ tnode }: { tnode: TNode }) {
   );
 }
 
-const renderers = {
+// Custom renderer for iframes (already exists, keeping for context)
+function IframeRenderer({ tnode }: { tnode: TNode }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const colorScheme = useColorScheme() ?? 'light';
+  const [isLoading, setIsLoading] = useState(true);
+  const { isDesktopWeb } = useResponsiveLayout();
+
+  const { src, height, width: initialWidth } = tnode.attributes;
+  const renderHtmlContentWidth = isDesktopWeb ? DESKTOP_TEXT_CONTENT_WIDTH : screenWidth - 40;
+  const aspectRatio = initialWidth && height ? parseInt(height, 10) / parseInt(initialWidth, 10) : 9 / 16;
+  const webViewHeight = renderHtmlContentWidth * aspectRatio;
+
+  if (!src) return null;
+
+  return (
+    <View style={[{ width: '100%', height: webViewHeight, marginBottom: 16, overflow: 'hidden', alignSelf: 'flex-start' }]}>
+      {isLoading && (
+        <View style={[StyleSheet.absoluteFill, styles.loadingOverlay]}>
+          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+        </View>
+      )}
+      <WebView
+        source={{ uri: src }}
+        style={{ flex: 1, opacity: isLoading ? 0 : 0.99 }}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowsFullscreenVideo={true}
+        onLoadEnd={() => setIsLoading(false)}
+      />
+    </View>
+  );
+}
+
+// New custom renderer for our embed placeholders
+const EmbedPlaceholderRenderer = ({ tnode, extraData }: CustomRendererProps<TNode, ArticleRenderExtraData>) => {
+  const { embedId } = tnode.attributes;
+  const { fetchedEmbeds } = extraData; // Access directly from extraData
+  const embedHtml = fetchedEmbeds?.[embedId];
+  const { isDesktopWeb } = useResponsiveLayout();
+  const colorScheme = useColorScheme() ?? 'light';
+
+  if (!embedHtml) {
+    return (
+      <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].cardBorder }]}>
+        <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+        <Text style={{ color: Colors[colorScheme].text, opacity: 0.7, marginTop: 8 }}>Loading embed...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <WebHtmlRenderer
+      htmlContent={embedHtml}
+      className="article-embed"
+      style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
+    />
+  );
+};
+
+const customRenderers = {
   iframe: IframeRenderer,
   img: ImageRenderer,
+  // Register our custom placeholder tag
+  'embed-placeholder': EmbedPlaceholderRenderer,
 };
 
 export default function ArticleScreen() {
@@ -126,60 +159,103 @@ export default function ArticleScreen() {
   const { isDesktopWeb } = useResponsiveLayout();
   const router = useRouter();
 
-  const [embeds, setEmbeds] = useState<string[]>([]);
+  const [processedHtml, setProcessedHtml] = useState('');
+  const [fetchedEmbeds, setFetchedEmbeds] = useState<Record<string, string>>({});
   const [isLoadingEmbeds, setIsLoadingEmbeds] = useState(true);
+  const hasTwitterScriptLoaded = useRef(false);
+
+  const article: Article = useMemo(() => {
+    if (!articleString) return null;
+    return JSON.parse(articleString);
+  }, [articleString]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !articleString) {
+    if (Platform.OS !== 'web' || !article) {
       setIsLoadingEmbeds(false);
       return;
     }
 
-    const article: Article = JSON.parse(articleString);
-    if (!article.link) {
-      setIsLoadingEmbeds(false);
-      return;
+    const originalHtml = article['content:encoded'];
+    // Regex to find all <a> tags with href containing "medium.com/media/"
+    const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
+    let tempHtml = originalHtml;
+    const mediaUrls: { url: string; placeholderId: string }[] = [];
+    let embedCounter = 0;
+
+    // Find all medium.com/media links and replace them with placeholders
+    // We need to use a loop with exec to get all matches
+    let match;
+    const matches = [];
+    while ((match = mediaLinkRegex.exec(originalHtml)) !== null) {
+      matches.push(match);
     }
 
-    const fetchEmbeds = async () => {
+    // Iterate matches in reverse to avoid issues with string replacement changing indices
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const currentMatch = matches[i];
+      const mediaUrl = currentMatch[1];
+      const placeholderId = `medium-embed-${embedCounter++}`;
+      // Replace the entire <a> tag with our custom placeholder tag
+      tempHtml = tempHtml.substring(0, currentMatch.index) +
+                 `<embed-placeholder embedId="${placeholderId}"></embed-placeholder>` +
+                 tempHtml.substring(currentMatch.index + currentMatch[0].length);
+      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
+    }
+    
+    setProcessedHtml(tempHtml);
+
+    const fetchAllEmbeds = async () => {
       setIsLoadingEmbeds(true);
-      try {
-        // Clean the URL by removing query parameters
-        const canonicalUrl = article.link.split('?')[0];
-        const apiUrl = `/api/get-embeds?articleUrl=${encodeURIComponent(canonicalUrl)}`;
-        const response = await fetch(apiUrl);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch embeds');
-        }
+      const newFetchedEmbeds: Record<string, string> = {};
+      let twitterScriptNeeded = false;
 
-        const data = await response.json();
-        if (data.embeds) {
-          setEmbeds(data.embeds);
-        }
-
-        // If there are Twitter embeds, we need to load their script
-        if (data.hasTwitterEmbed) {
-          const scriptId = 'twitter-wjs';
-          if (!document.getElementById(scriptId)) {
-            const script = document.createElement('script');
-            script.id = scriptId;
-            script.src = "https://platform.twitter.com/widgets.js";
-            script.async = true;
-            script.charset = "utf-8";
-            document.body.appendChild(script);
+      const promises = mediaUrls.map(async ({ url, placeholderId }) => {
+        try {
+          const apiUrl = `/api/get-media-embed?mediaUrl=${encodeURIComponent(url)}`;
+          const response = await fetch(apiUrl);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch embed for ${url}`);
           }
+
+          const data: EmbedData = await response.json();
+          if (data.embedHtml) {
+            newFetchedEmbeds[placeholderId] = data.embedHtml;
+            if (data.isTwitterEmbed) {
+              twitterScriptNeeded = true;
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching embed for ${url}:`, error);
+          // Optionally, set an error message or fallback HTML for this placeholder
+          newFetchedEmbeds[placeholderId] = `<p style="color: red; text-align: center;">Failed to load embed.</p>`;
         }
-      } catch (error) {
-        console.error("Error fetching embeds:", error);
-        setEmbeds([]); // Clear embeds on error
-      } finally {
-        setIsLoadingEmbeds(false);
+      });
+
+      await Promise.all(promises);
+      setFetchedEmbeds(newFetchedEmbeds);
+      setIsLoadingEmbeds(false);
+
+      if (twitterScriptNeeded && !hasTwitterScriptLoaded.current) {
+        const scriptId = 'twitter-wjs';
+        if (!document.getElementById(scriptId)) {
+          const script = document.createElement('script');
+          script.id = scriptId;
+          script.src = "https://platform.twitter.com/widgets.js";
+          script.async = true;
+          script.charset = "utf-8";
+          document.body.appendChild(script);
+          hasTwitterScriptLoaded.current = true;
+        }
       }
     };
 
-    fetchEmbeds();
-  }, [articleString]);
+    if (mediaUrls.length > 0) {
+      fetchAllEmbeds();
+    } else {
+      setIsLoadingEmbeds(false);
+    }
+  }, [article]); // Re-run when article changes
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -187,7 +263,7 @@ export default function ArticleScreen() {
     }
   }, [colorScheme]);
 
-  if (!articleString) {
+  if (!article) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors[colorScheme].background }}>
         <ArticleHeader />
@@ -198,7 +274,6 @@ export default function ArticleScreen() {
     );
   }
 
-  const article: Article = JSON.parse(articleString);
   const formattedDate = new Date(article.isoDate).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -273,30 +348,16 @@ export default function ArticleScreen() {
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             <RenderHTML
               contentWidth={renderHtmlContentWidth}
-              source={{ html: article['content:encoded'] }}
+              source={{ html: processedHtml }} // Use processedHtml here
               tagsStyles={tagsStyles as any}
-              renderers={renderers as any}
+              renderers={customRenderers as any} // Use customRenderers
               baseStyle={{ width: renderHtmlContentWidth }}
+              // Pass fetchedEmbeds as extraData to the custom renderer
+              extraData={fetchedEmbeds}
             />
           </View>
 
-          {Platform.OS === 'web' && (embeds.length > 0 || isLoadingEmbeds) && (
-            <View style={[styles.embedsSection, isDesktopWeb && styles.desktopEmbedsSection]}>
-              <View style={[styles.metaSeparator, { backgroundColor: Colors[colorScheme].cardBorder, marginBottom: 32 }]} />
-              {isLoadingEmbeds ? (
-                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-              ) : (
-                embeds.map((embedHtml, index) => (
-                  <WebHtmlRenderer
-                    key={index}
-                    htmlContent={embedHtml}
-                    className="article-embed"
-                    style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
-                  />
-                ))
-              )}
-            </View>
-          )}
+          {/* Removed the separate embeds section, as they are now inline */}
 
           {Platform.OS === 'web' && (
             <View style={[styles.commentsButtonWrapper, isDesktopWeb && styles.desktopCommentsButtonWrapper]}>
@@ -361,6 +422,13 @@ const styles = StyleSheet.create({
   desktopCategorySection: { flexDirection: 'row', alignItems: 'center' },
   desktopDateAuthorCenteredWrapper: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   desktopDateAuthorInner: { flexDirection: 'row', alignItems: 'center' },
-  embedsSection: { paddingBottom: 40 },
-  desktopEmbedsSection: {},
+  embedsSection: { paddingBottom: 40 }, // Keeping this style for now, even if the section is removed.
+  embedPlaceholder: {
+    width: '100%',
+    height: 200, // Placeholder height
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderRadius: 8,
+  },
 });
