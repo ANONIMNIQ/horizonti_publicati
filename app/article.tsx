@@ -346,6 +346,7 @@ export default function ArticleScreen() {
 
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
+            {/* @ts-ignore */}
             <RenderHTML
               contentWidth={renderHtmlContentWidth}
               source={{ html: processedHtml }} // Use processedHtml here
@@ -353,7 +354,7 @@ export default function ArticleScreen() {
               renderers={customRenderers as any} // Use customRenderers
               baseStyle={{ width: renderHtmlContentWidth }}
               // Pass fetchedEmbeds as extraData to the custom renderer
-              extraData={fetchedEmbeds as any} // Cast extraData to any
+              extraData={fetchedEmbeds}
             />
           </View>
 
