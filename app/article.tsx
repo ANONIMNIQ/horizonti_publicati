@@ -239,7 +239,11 @@ export default function ArticleScreen() {
 
         {Platform.OS === 'web' && firstImageSrc && (
           <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
-            <Image source={{ uri: firstImageSrc }} style={styles.firstImage} resizeMode="cover" />
+            <Image 
+              source={{ uri: firstImageSrc }} 
+              style={[styles.firstImage, !isDesktopWeb && styles.mobileWebFirstImage]} 
+              resizeMode="cover" 
+            />
           </View>
         )}
 
@@ -343,7 +347,10 @@ const styles = StyleSheet.create({
   },
   firstImage: {
     width: '100%',
-    height: 550, // Increased height for a more square-like appearance
+    height: 550, // Default height for desktop web
     resizeMode: 'cover',
+  },
+  mobileWebFirstImage: {
+    height: 250, // Smaller height for mobile/tablet web
   },
 });
