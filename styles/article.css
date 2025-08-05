@@ -71,6 +71,7 @@
   margin-right: auto; /* Align left */
   margin-bottom: 16px; /* Consistent spacing */
   object-fit: cover; /* Ensures images fill their space without distortion */
+  border-radius: 0; /* Ensure no rounded corners */
 }
 
 .article-content iframe {
@@ -91,7 +92,6 @@
   text-align: center;
   text-decoration: none;
   width: fit-content; /* Adjust width to content */
-  /* min-width: 300px; Removed min-width */
   margin: 8px auto 16px auto; /* Center horizontally and add vertical spacing */
   /* Colors will be handled by JS for dynamic theming */
 }
