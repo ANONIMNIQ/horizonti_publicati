@@ -24,8 +24,6 @@ import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
 import SkeletonText from '@/components/SkeletonText';
-import RenderHtml from 'react-native-render-html'; // Import RenderHtml
-import { WebView } from 'react-native-webview'; // Import WebView
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
@@ -34,78 +32,6 @@ interface EmbedData {
   embedHtml: string;
   isTwitterEmbed: boolean;
 }
-
-// Define nativeHtmlTagsStyles outside the component to avoid re-creation
-const nativeHtmlTagsStyles = (colorScheme: 'light' | 'dark', textColors: any) => ({
-  p: {
-    fontSize: 17,
-    lineHeight: 28,
-    fontWeight: '300',
-    marginBottom: 16,
-    color: textColors.text,
-  },
-  h1: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 40,
-    marginBottom: 16,
-    color: textColors.text,
-  },
-  h2: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    lineHeight: 36,
-    marginBottom: 16,
-    color: textColors.text,
-  },
-  h3: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    lineHeight: 32,
-    marginBottom: 16,
-    color: textColors.text,
-  },
-  ul: {
-    marginLeft: 20,
-    marginBottom: 16,
-  },
-  ol: {
-    marginLeft: 20,
-    marginBottom: 16,
-  },
-  li: {
-    fontSize: 17,
-    lineHeight: 28,
-    fontWeight: '300',
-    marginBottom: 8,
-    color: textColors.text,
-  },
-  img: {
-    maxWidth: '100%',
-    height: 'auto',
-    marginBottom: 16,
-    borderRadius: 0,
-  },
-  iframe: {
-    width: '100%',
-    height: 300, // Default height, will be overridden by custom renderer
-    borderWidth: 0,
-    marginBottom: 16,
-    borderRadius: 0,
-  },
-  pre: {
-    backgroundColor: textColors.skeletonBackground,
-    padding: 16,
-    borderRadius: 8,
-    overflowX: 'scroll',
-    marginBottom: 16,
-  },
-  code: {
-    fontFamily: 'monospace',
-    color: textColors.text,
-  },
-});
-
 
 export default function ArticleScreen() {
   const { article: articleString } = useLocalSearchParams<{ article: string }>();
@@ -123,8 +49,6 @@ export default function ArticleScreen() {
     if (!articleString) return null;
     return JSON.parse(articleString);
   }, [articleString]);
-
-  const tagsStyles = useMemo(() => nativeHtmlTagsStyles(colorScheme, Colors[colorScheme]), [colorScheme]);
 
   useEffect(() => {
     if (!article) {
@@ -161,11 +85,10 @@ export default function ArticleScreen() {
       const fullLinkTag = currentMatch[0];
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
       
-      mediaUrls.unshift({ url: mediaUrl, placeholderId });
-      
       htmlWithPlaceholders = htmlWithPlaceholders.substring(0, currentMatch.index) +
                              `<!--${placeholderId}-->` +
                              htmlWithPlaceholders.substring(currentMatch.index + fullLinkTag.length);
+      mediaUrls.unshift({ url: mediaUrl, placeholderId });
     }
 
     const fetchAndInjectEmbeds = async () => {
@@ -316,42 +239,11 @@ export default function ArticleScreen() {
                 <SkeletonText lines={15} />
               </View>
             ) : (
-              Platform.OS === 'web' ? (
-                <WebHtmlRenderer
-                  htmlContent={processedHtml}
-                  className="article-content"
-                  style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
-                />
-              ) : (
-                <RenderHtml
-                  contentWidth={width - 40} // Adjust for horizontal padding
-                  source={{ html: processedHtml }}
-                  tagsStyles={tagsStyles}
-                  renderers={{
-                    iframe: (props) => {
-                      // Extract width/height from iframe attributes if available, otherwise default
-                      const iframeWidth = props.tnode.attributes.width ? parseInt(props.tnode.attributes.width as string) : 560;
-                      const iframeHeight = props.tnode.attributes.height ? parseInt(props.tnode.attributes.height as string) : 315;
-                      const aspectRatio = iframeHeight / iframeWidth;
-                      const calculatedHeight = (width - 40) * aspectRatio; // Calculate height based on screen width and aspect ratio
-
-                      return (
-                        <View style={{ width: '100%', height: calculatedHeight, marginBottom: 16 }}>
-                          <WebView
-                            source={{ html: `<body style="margin:0;padding:0;overflow:hidden;background-color:transparent;">${props.tnode.data}</body>` }}
-                            style={{ flex: 1, backgroundColor: 'transparent' }}
-                            allowsFullscreenVideo={true}
-                            javaScriptEnabled={true}
-                            domStorageEnabled={true}
-                            startInLoadingState={true}
-                            renderLoading={() => <ActivityIndicator size="small" color={Colors[colorScheme].tint} />}
-                          />
-                        </View>
-                      );
-                    },
-                  }}
-                />
-              )
+              <WebHtmlRenderer
+                htmlContent={processedHtml}
+                className="article-content"
+                style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
+              />
             )}
           </View>
 
