@@ -1,9 +1,9 @@
-import cheerio from 'cheerio';
+import { load, type Element } from 'cheerio';
 
 // This defines the type for the function's context, specific to Cloudflare Pages.
 interface Env {}
 
-export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
+export const onRequestGet = async ({ request }: { request: Request }) => {
   const url = new URL(request.url);
   const articleUrl = url.searchParams.get('articleUrl');
 
@@ -26,12 +26,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
     }
 
     const html = await response.text();
-    const $ = cheerio.load(html);
+    const $ = load(html);
 
     const embeds: string[] = [];
     
     // Select all common embed wrappers from Medium
-    $('iframe, blockquote.twitter-tweet, .gist').each((i, el) => {
+    $('iframe, blockquote.twitter-tweet, .gist').each((i: number, el: Element) => {
       // We get the outer HTML of the element
       embeds.push($.html(el));
     });
