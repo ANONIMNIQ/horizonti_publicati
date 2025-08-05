@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   contentContainer: { paddingHorizontal: 20 },
   desktopContentContainer: { paddingHorizontal: 16 },
   titleAndMetaWrapper: {},
-  desktopTitleAndMetaWrapper: { alignSelf: 'center', width: '100%' },
+  desktopTitleAndMetaWrapper: { alignSelf: 'flex-end', width: '100%' }, // Changed to flex-end
   title: { fontSize: 20, fontWeight: '500', marginBottom: 12, lineHeight: 28 },
   desktopTitle: { fontSize: 40, fontWeight: 'bold', lineHeight: 48, marginBottom: 16 },
   container: { flex: 1 },
@@ -313,12 +313,12 @@ const styles = StyleSheet.create({
   articleBodyWrapper: {},
   desktopArticleBodyWrapper: {
     width: DESKTOP_TEXT_CONTENT_WIDTH, // Fixed width for text column
-    alignSelf: 'center', // Center the text column
+    alignSelf: 'flex-end', // Changed to flex-end
   },
   commentsButtonWrapper: { marginTop: 24, marginBottom: 40, alignItems: 'center' },
   desktopCommentsButtonWrapper: {
     width: DESKTOP_TEXT_CONTENT_WIDTH, // Fixed width for button
-    alignSelf: 'center', // Center the button
+    alignSelf: 'flex-end', // Changed to flex-end
   },
   bottomButtonContainer: { position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center', zIndex: 10 },
   desktopBottomButtonContainer: { maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, alignSelf: 'center', left: 'auto', right: 'auto', paddingHorizontal: 16 },
