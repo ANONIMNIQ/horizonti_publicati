@@ -46,8 +46,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
     if (!mediaUrl) {
       return new Response(JSON.stringify({ error: 'Missing mediaUrl' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      }) as unknown as import("@cloudflare/workers-types").Response;
+        headers: new Headers({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }),
+      });
     }
 
     let embedHtml: string | null = null;
@@ -66,7 +66,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
             console.warn(`Failed to fetch media link ${mediaUrl}: ${mediaResponse.statusText}`);
             return new Response(JSON.stringify({ embedHtml: null, isTwitterEmbed: false }), {
                 status: 200, // Return 200 even on failure to avoid breaking the client
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                headers: new Headers({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }),
             });
         }
 
@@ -142,16 +142,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
     }
 
     return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-      headers: { 
+      headers: new Headers({
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
-      },
-    }) as unknown as import("@cloudflare/workers-types").Response;
+      }),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    }) as unknown as import("@cloudflare/workers-types").Response;
+      headers: new Headers({ 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }),
+    });
   }
 };
