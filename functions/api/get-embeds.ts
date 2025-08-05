@@ -1,4 +1,4 @@
-import { load, type Element } from 'cheerio';
+import { load } from 'cheerio';
 
 // This defines the type for the function's context, specific to Cloudflare Pages.
 interface Env {}
@@ -31,7 +31,7 @@ export const onRequestGet = async ({ request }: { request: Request }) => {
     const embeds: string[] = [];
     
     // Select all common embed wrappers from Medium
-    $('iframe, blockquote.twitter-tweet, .gist').each((i: number, el: Element) => {
+    $('iframe, blockquote.twitter-tweet, .gist').each((i, el) => {
       // We get the outer HTML of the element
       embeds.push($.html(el));
     });
