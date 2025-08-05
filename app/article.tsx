@@ -23,11 +23,11 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
-import SkeletonText from '@/components/SkeletonText';
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
 
+// Define a type for the fetched embed data from the API
 interface EmbedData {
   embedHtml: string;
   isTwitterEmbed: boolean;
@@ -41,7 +41,6 @@ export default function ArticleScreen() {
   const router = useRouter();
 
   const [processedHtml, setProcessedHtml] = useState('');
-  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const hasTwitterScriptLoaded = useRef(false);
 
@@ -56,44 +55,37 @@ export default function ArticleScreen() {
       return;
     }
 
-    let initialHtml = article['content:encoded'];
-    let extractedFirstImage: string | null = null;
-
-    const firstImageMatch = initialHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
-    if (firstImageMatch) {
-      extractedFirstImage = firstImageMatch[1];
-      setFirstImageSrc(extractedFirstImage);
-      initialHtml = initialHtml.replace(firstImageMatch[0], '');
-    } else {
-      setFirstImageSrc(null);
-    }
-
+    const originalHtml = article['content:encoded'];
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
+    
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
-    
-    let htmlWithPlaceholders = initialHtml;
+    let tempHtml = originalHtml;
+
+    // First pass: Replace media links with unique placeholders
     let match;
     const matches = [];
-    while ((match = mediaLinkRegex.exec(initialHtml)) !== null) {
+    while ((match = mediaLinkRegex.exec(originalHtml)) !== null) {
       matches.push(match);
     }
 
+    // Iterate matches in reverse to avoid issues with string replacement changing indices
     for (let i = matches.length - 1; i >= 0; i--) {
       const currentMatch = matches[i];
       const mediaUrl = currentMatch[1];
-      const fullLinkTag = currentMatch[0];
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
-      
-      htmlWithPlaceholders = htmlWithPlaceholders.substring(0, currentMatch.index) +
-                             `<!--${placeholderId}-->` +
-                             htmlWithPlaceholders.substring(currentMatch.index + fullLinkTag.length);
-      mediaUrls.unshift({ url: mediaUrl, placeholderId });
+      // Replace the entire <a> tag with our unique placeholder string
+      tempHtml = tempHtml.substring(0, currentMatch.index) +
+                 `<!--${placeholderId}-->` +
+                 tempHtml.substring(currentMatch.index + currentMatch[0].length);
+      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
     }
-
+    
+    // Second pass: Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
       setIsLoadingContent(true);
-      let finalHtml = htmlWithPlaceholders;
+      let currentHtml = tempHtml;
+      let twitterScriptNeeded = false;
 
       const embedPromises = mediaUrls.map(async ({ url, placeholderId }) => {
         try {
@@ -107,29 +99,30 @@ export default function ArticleScreen() {
           const data: EmbedData = await response.json();
           if (data.embedHtml) {
             if (data.isTwitterEmbed) {
-              hasTwitterScriptLoaded.current = true;
+              twitterScriptNeeded = true;
             }
             return { placeholderId, embedHtml: data.embedHtml };
           }
         } catch (error) {
           console.error(`Error fetching embed for ${url}:`, error);
-          return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed for ${url}.</p>` };
+          return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed.</p>` };
         }
-        return { placeholderId, embedHtml: '' };
+        return { placeholderId, embedHtml: '' }; // Return empty if no embedHtml
       });
 
       const results = await Promise.all(embedPromises);
 
+      // Replace placeholders with fetched HTML
       results.forEach(result => {
         if (result) {
-          finalHtml = finalHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
+          currentHtml = currentHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
         }
       });
 
-      setProcessedHtml(finalHtml);
+      setProcessedHtml(currentHtml);
       setIsLoadingContent(false);
 
-      if (hasTwitterScriptLoaded.current && Platform.OS === 'web') {
+      if (twitterScriptNeeded && !hasTwitterScriptLoaded.current && Platform.OS === 'web') {
         const scriptId = 'twitter-wjs';
         if (!document.getElementById(scriptId)) {
           const script = document.createElement('script');
@@ -138,6 +131,7 @@ export default function ArticleScreen() {
           script.async = true;
           script.charset = "utf-8";
           document.body.appendChild(script);
+          hasTwitterScriptLoaded.current = true;
         }
       }
     };
@@ -145,10 +139,10 @@ export default function ArticleScreen() {
     if (mediaUrls.length > 0) {
       fetchAndInjectEmbeds();
     } else {
-      setProcessedHtml(htmlWithPlaceholders);
+      setProcessedHtml(tempHtml); // No embeds to fetch, use original processed HTML
       setIsLoadingContent(false);
     }
-  }, [article]);
+  }, [article]); // Re-run when article changes
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -225,18 +219,14 @@ export default function ArticleScreen() {
               </View>
             )}
           </View>
-          {firstImageSrc && (
-            <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
-              <Image source={{ uri: firstImageSrc }} style={[styles.firstImage, isDesktopWeb && styles.desktopFirstImage]} resizeMode="cover" />
-            </View>
-          )}
         </View>
 
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
-              <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].skeletonBackground }]}>
-                <SkeletonText lines={15} />
+              <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].cardBorder }]}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+                <Text style={{ color: Colors[colorScheme].text, opacity: 0.7, marginTop: 8 }}>Loading article content...</Text>
               </View>
             ) : (
               <WebHtmlRenderer
@@ -312,26 +302,10 @@ const styles = StyleSheet.create({
   desktopDateAuthorInner: { flexDirection: 'row', alignItems: 'center' },
   embedPlaceholder: {
     width: '100%',
-    height: 200,
+    height: 200, // Placeholder height
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  firstImageWrapper: {
-    width: '100%',
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  desktopFirstImageWrapper: {
-    maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-  },
-  firstImage: {
-    width: '100%',
-    height: 200,
-  },
-  desktopFirstImage: {
-    height: 400,
+    borderRadius: 8,
   },
 });

@@ -71,7 +71,6 @@
   margin-right: auto; /* Align left */
   margin-bottom: 16px; /* Consistent spacing */
   object-fit: cover; /* Ensures images fill their space without distortion */
-  border-radius: 0 !important; /* Removed rounded corners */
 }
 
 .article-content iframe {
@@ -79,9 +78,9 @@
   width: 100%; /* Fills the container width */
   height: auto; /* Will be overridden by JS for aspect ratio, but good fallback */
   border: none;
-  margin: 0 auto 16px auto; /* Center horizontally and add vertical spacing */
-  max-width: 100%; /* Ensure it doesn't overflow */
-  border-radius: 0 !important; /* Removed rounded corners */
+  margin-left: 0; /* Align left */
+  margin-right: auto; /* Align left */
+  margin-bottom: 16px; /* Consistent spacing */
 }
 
 /* Specific styles for links that are meant to be buttons */
@@ -127,7 +126,7 @@
 .article-embed iframe {
   max-width: 100%;
   border: none;
-  border-radius: 0; /* Removed rounded corners */
+  border-radius: 8px;
 }
 
 /* Dark mode adjustments (example - actual colors from Colors.ts) */

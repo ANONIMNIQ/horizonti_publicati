@@ -1,4 +1,15 @@
 {
+  "name": "horizonti",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "dev": "expo start",
+    "build:cloudflare": "expo export --platform web && copyfiles \"web-build/**/*\" _static"
+  },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@lucide/lab": "^0.1.2",
@@ -31,7 +42,8 @@
     "react-native-screens": "~4.1.0",
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "react-native-webview": "13.13.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -43,12 +55,5 @@
     "prettier": "^3.3.3",
     "serve": "^14.2.3",
     "typescript": "~5.8.3"
-  },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "build:cloudflare": "cd functions && tsc"
   }
 }
