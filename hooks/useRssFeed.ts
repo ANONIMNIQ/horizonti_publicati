@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Article } from '@/types';
-import { load } from 'cheerio';
 
 const MEDIUM_RSS_FEED_URL = 'https://medium.com/feed/horizonti';
 const RSS2JSON_API_URL_BASE = 'https://api.rss2json.com/v1/api.json?rss_url=';
