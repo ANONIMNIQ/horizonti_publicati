@@ -15,19 +15,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
   }
 
   try {
-    // Step 1: Fetch the main Medium article page
-    const mainArticleResponse = await fetch(articleUrl, {
+    const response = await fetch(articleUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     });
 
-    if (!mainArticleResponse.ok) {
-      throw new Error(`Failed to fetch main article: ${mainArticleResponse.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch article: ${response.statusText}`);
     }
 
-    const mainArticleHtml = await mainArticleResponse.text();
-    const $ = load(mainArticleHtml);
+    const html = await response.text();
+    const $ = load(html);
 
     const mediaLinks: string[] = [];
     // Find all links that point to medium.com/media
