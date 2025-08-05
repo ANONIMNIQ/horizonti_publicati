@@ -42,6 +42,7 @@ export default function ArticleScreen() {
 
   const [processedHtml, setProcessedHtml] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(true);
+  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null); // New state for the first image
   const hasTwitterScriptLoaded = useRef(false);
 
   const article: Article = useMemo(() => {
@@ -55,17 +56,31 @@ export default function ArticleScreen() {
       return;
     }
 
-    const originalHtml = article['content:encoded'];
+    let contentHtml = article['content:encoded'];
+    let extractedFirstImageSrc: string | null = null;
+
+    // Regex to find the first <img> tag and its full match
+    const firstImageRegex = /<img[^>]+src="([^">]+)"[^>]*>/;
+    const firstImageMatch = contentHtml.match(firstImageRegex);
+
+    if (firstImageMatch) {
+      extractedFirstImageSrc = firstImageMatch[1]; // The src URL
+      // Remove the first image tag from the contentHtml
+      contentHtml = contentHtml.replace(firstImageMatch[0], '');
+    }
+    setFirstImageSrc(extractedFirstImageSrc); // Set the state for the first image
+
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
-    
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
-    let tempHtml = originalHtml;
+    let tempHtml = contentHtml; // Start with contentHtml after first image removal
 
     // First pass: Replace media links with unique placeholders
     let match;
     const matches = [];
-    while ((match = mediaLinkRegex.exec(originalHtml)) !== null) {
+    // Reset regex lastIndex for global regex to work correctly on subsequent calls
+    mediaLinkRegex.lastIndex = 0; 
+    while ((match = mediaLinkRegex.exec(contentHtml)) !== null) { // Use contentHtml here
       matches.push(match);
     }
 
@@ -84,7 +99,8 @@ export default function ArticleScreen() {
     // Second pass: Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
       setIsLoadingContent(true);
-      let currentHtml = tempHtml;
+      let currentHtml = tempHtml; // Start with tempHtml which has placeholders
+
       let twitterScriptNeeded = false;
 
       const embedPromises = mediaUrls.map(async ({ url, placeholderId }) => {
@@ -221,6 +237,12 @@ export default function ArticleScreen() {
           </View>
         </View>
 
+        {Platform.OS === 'web' && firstImageSrc && (
+          <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
+            <Image source={{ uri: firstImageSrc }} style={styles.firstImage} resizeMode="cover" />
+          </View>
+        )}
+
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
@@ -307,5 +329,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     borderRadius: 8,
+  },
+  // New styles for the first image
+  firstImageWrapper: {
+    marginBottom: 24, // Space below the image
+    width: '100%',
+    alignItems: 'center', // Center the image if it's not full width
+  },
+  desktopFirstImageWrapper: {
+    maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
+    alignSelf: 'center',
+    paddingHorizontal: 16, // Match content container padding
+  },
+  firstImage: {
+    width: '100%',
+    height: 300, // Adjusted height for better visual
+    resizeMode: 'cover',
   },
 });

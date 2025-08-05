@@ -71,6 +71,7 @@
   margin-right: auto; /* Align left */
   margin-bottom: 16px; /* Consistent spacing */
   object-fit: cover; /* Ensures images fill their space without distortion */
+  border-radius: 0; /* Ensure sharp corners */
 }
 
 .article-content iframe {
@@ -81,6 +82,7 @@
   margin-left: 0; /* Align left */
   margin-right: auto; /* Align left */
   margin-bottom: 16px; /* Consistent spacing */
+  border-radius: 0; /* Ensure sharp corners */
 }
 
 /* Specific styles for links that are meant to be buttons */
@@ -91,7 +93,6 @@
   text-align: center;
   text-decoration: none;
   width: fit-content; /* Adjust width to content */
-  /* min-width: 300px; Removed min-width */
   margin: 8px auto 16px auto; /* Center horizontally and add vertical spacing */
   /* Colors will be handled by JS for dynamic theming */
 }
@@ -126,7 +127,7 @@
 .article-embed iframe {
   max-width: 100%;
   border: none;
-  border-radius: 8px;
+  border-radius: 0; /* Ensure sharp corners */
 }
 
 /* Dark mode adjustments (example - actual colors from Colors.ts) */
