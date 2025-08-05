@@ -73,29 +73,18 @@ export default function ArticleScreen() {
     }
 
     // 2. Process media links (YouTube, Deezer, Apple Podcasts, etc.)
+    // This regex now captures the entire <a> tag that wraps the medium.com/media link
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
     
-    // First pass: Replace media links with unique placeholders
-    let match;
-    const matches = [];
-    while ((match = mediaLinkRegex.exec(originalHtml)) !== null) {
-      matches.push(match);
-    }
-
-    // Iterate matches in reverse to avoid issues with string replacement changing indices
-    for (let i = matches.length - 1; i >= 0; i--) {
-      const currentMatch = matches[i];
-      const mediaUrl = currentMatch[1];
+    // Replace media links with unique placeholders, ensuring the entire <a> tag is removed
+    tempHtml = tempHtml.replace(mediaLinkRegex, (match, url) => {
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
-      // Replace the entire <a> tag with our unique placeholder string
-      tempHtml = tempHtml.substring(0, currentMatch.index) +
-                 `<!--${placeholderId}-->` +
-                 tempHtml.substring(currentMatch.index + currentMatch[0].length);
-      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
-    }
+      mediaUrls.push({ url, placeholderId });
+      return `<!--${placeholderId}-->`; // Replace the entire <a> tag with the placeholder
+    });
     
     // Second pass: Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
@@ -189,13 +178,6 @@ export default function ArticleScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors[colorScheme].background }} edges={['bottom']}>
       {!isDesktopWeb && <ArticleHeader />}
       <ScrollView contentContainerStyle={[styles.scrollContainer, isDesktopWeb && styles.desktopScrollContainer]}>
-        {/* First Image (Desktop Web Only) */}
-        {isDesktopWeb && firstImageSrc && (
-          <View style={styles.desktopFirstImageWrapper}>
-            <Image source={{ uri: firstImageSrc }} style={styles.desktopFirstImage} resizeMode="cover" />
-          </View>
-        )}
-
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.titleAndMetaWrapper, isDesktopWeb && styles.desktopTitleAndMetaWrapper]}>
             <Text style={[styles.title, isDesktopWeb && styles.desktopTitle, { color: Colors[colorScheme].text }]}>{decode(article.title)}</Text>
@@ -242,6 +224,12 @@ export default function ArticleScreen() {
               </View>
             )}
           </View>
+          {/* First Image (Desktop Web Only) - Moved here */}
+          {isDesktopWeb && firstImageSrc && (
+            <View style={styles.desktopFirstImageWrapper}>
+              <Image source={{ uri: firstImageSrc }} style={styles.desktopFirstImage} resizeMode="cover" />
+            </View>
+          )}
         </View>
 
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>

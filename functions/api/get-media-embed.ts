@@ -47,102 +47,63 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
       }) as unknown as import("@cloudflare/workers-types").Response;
     }
 
-    const youtubeId = getYouTubeVideoId(mediaUrl);
-    const deezerInfo = getDeezerId(mediaUrl);
-    const applePodcastInfo = getApplePodcastInfo(mediaUrl); // New check
     let embedHtml: string | null = null;
     let isTwitterEmbed = false;
 
-    if (youtubeId) {
-      embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
-    } else if (deezerInfo) {
-      // Make width 100% for responsiveness
-      embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
-    } else if (applePodcastInfo) {
-      // Construct Apple Podcast embed URL
-      const embedSrc = `https://embed.podcasts.apple.com/${applePodcastInfo.country}/podcast/id${applePodcastInfo.podcastId}${applePodcastInfo.episodeId ? `?i=${applePodcastInfo.episodeId}` : ''}`;
-      // Apple recommends height 175 for episode players, or 450 for full podcast players.
-      const embedHeight = applePodcastInfo.episodeId ? 175 : 450; // Use 175 for episode, 450 for full podcast
-      embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:10px;transform:translateZ(0);"></iframe>`;
-    } else {
-      // Fallback for other embeds: fetch the media link and extract embed code
-      try {
-        let currentFetchUrl = mediaUrl;
-        let mediaResponse = await fetch(currentFetchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          },
-          redirect: 'follow' // Ensure redirects are followed
+    try {
+        // Always fetch the mediaUrl first, as it's usually a Medium media page
+        let mediaResponse = await fetch(mediaUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            redirect: 'follow' // Ensure redirects are followed
         });
 
-        // If there was a redirect, update the URL to the final destination
-        if (mediaResponse.redirected) {
-          currentFetchUrl = mediaResponse.url;
-          // Re-check for YouTube/Deezer/Apple Podcast if it redirected to a direct media link
-          const redirectedYoutubeId = getYouTubeVideoId(currentFetchUrl);
-          const redirectedDeezerInfo = getDeezerId(currentFetchUrl);
-          const redirectedApplePodcastInfo = getApplePodcastInfo(currentFetchUrl); // New check
-
-          if (redirectedYoutubeId) {
-            embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
-            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            }) as unknown as import("@cloudflare/workers-types").Response;
-          } else if (redirectedDeezerInfo) {
-            embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${redirectedDeezerInfo.type}s&id=${redirectedDeezerInfo.id}&app_id=1"></iframe>`;
-            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            }) as unknown as import("@cloudflare/workers-types").Response;
-          } else if (redirectedApplePodcastInfo) { // New block for Apple Podcasts
-            const embedSrc = `https://embed.podcasts.apple.com/${redirectedApplePodcastInfo.country}/podcast/id${redirectedApplePodcastInfo.podcastId}${redirectedApplePodcastInfo.episodeId ? `?i=${redirectedApplePodcastInfo.episodeId}` : ''}`;
-            const embedHeight = redirectedApplePodcastInfo.episodeId ? 175 : 450;
-            embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:10px;transform:translateZ(0);"></iframe>`;
-            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            }) as unknown as import("@cloudflare/workers-types").Response;
-          }
-        }
-
         if (!mediaResponse.ok) {
-          console.warn(`Failed to fetch media link ${mediaUrl}: ${mediaResponse.statusText}`);
-          embedHtml = null;
-        } else {
-          const mediaHtml = await mediaResponse.text();
-          const $$ = load(mediaHtml);
-          
-          // Look for any iframe or blockquote.twitter-tweet
-          const foundEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
-          if (foundEmbed.length > 0) {
-            embedHtml = foundEmbed.prop('outerHTML');
-            if (foundEmbed.hasClass('twitter-tweet')) {
-              isTwitterEmbed = true;
-            }
-          } else {
-            // Fallback to looking for document.write in script tags
-            $$('script').each((i, el) => {
-              const scriptContent = $$(el).html();
-              if (scriptContent) {
-                const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
-                if (writeMatch && writeMatch[1]) {
-                  const decodedHtml = writeMatch[1]
-                    .replace(/\\"/g, '"')
-                    .replace(/\\'/g, "'")
-                    .replace(/\\\//g, '/');
-                  embedHtml = decodedHtml;
-                  if (decodedHtml.includes('twitter-tweet')) {
-                    isTwitterEmbed = true;
-                  }
-                  // Found it, no need to continue
-                  return false; // Break out of .each loop
-                }
-              }
+            console.warn(`Failed to fetch media link ${mediaUrl}: ${mediaResponse.statusText}`);
+            return new Response(JSON.stringify({ embedHtml: null, isTwitterEmbed: false }), {
+                status: 200, // Return 200 even on failure to avoid breaking the client
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
-          }
         }
-      } catch (e) {
+
+        const mediaHtml = await mediaResponse.text();
+        const $$ = load(mediaHtml);
+
+        // Prioritize finding an iframe
+        const iframe = $$('iframe').first();
+        if (iframe.length > 0) {
+            embedHtml = iframe.prop('outerHTML');
+        } else {
+            // Fallback to looking for Twitter blockquotes
+            const twitterBlockquote = $$('blockquote.twitter-tweet, div.twitter-tweet').first();
+            if (twitterBlockquote.length > 0) {
+                embedHtml = twitterBlockquote.prop('outerHTML');
+                isTwitterEmbed = true;
+            } else {
+                // Fallback to looking for document.write in script tags
+                $$('script').each((i, el) => {
+                    const scriptContent = $$(el).html();
+                    if (scriptContent) {
+                        const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
+                        if (writeMatch && writeMatch[1]) {
+                            const decodedHtml = writeMatch[1]
+                                .replace(/\\"/g, '"')
+                                .replace(/\\'/g, "'")
+                                .replace(/\\\//g, '/');
+                            embedHtml = decodedHtml;
+                            if (decodedHtml.includes('twitter-tweet')) {
+                                isTwitterEmbed = true;
+                            }
+                            return false; // Break out of .each loop
+                        }
+                    }
+                });
+            }
+        }
+    } catch (e) {
         console.error(`Error processing media link ${mediaUrl}:`, e);
         embedHtml = null;
-      }
     }
 
     return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
