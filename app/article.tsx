@@ -57,40 +57,52 @@ export default function ArticleScreen() {
       return;
     }
 
-    const originalHtml = article['content:encoded'];
-    let tempHtml = originalHtml;
+    let initialHtml = article['content:encoded'];
     let extractedFirstImage: string | null = null;
 
     // 1. Extract the first image and remove it from the HTML
-    const firstImageMatch = tempHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
+    const firstImageMatch = initialHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
     if (firstImageMatch) {
       extractedFirstImage = firstImageMatch[1];
       setFirstImageSrc(extractedFirstImage);
-      // Remove the first image tag from the HTML
-      tempHtml = tempHtml.replace(firstImageMatch[0], '');
+      initialHtml = initialHtml.replace(firstImageMatch[0], ''); // Remove the first image tag
     } else {
       setFirstImageSrc(null);
     }
 
-    // 2. Process media links (YouTube, Deezer, Apple Podcasts, etc.)
-    // This regex now captures the entire <a> tag that wraps the medium.com/media link
+    // 2. Identify and replace media links with placeholders
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
-    
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
     
-    // Replace media links with unique placeholders, ensuring the entire <a> tag is removed
-    tempHtml = tempHtml.replace(mediaLinkRegex, (match, url) => {
+    // Use a temporary string to build the HTML with placeholders
+    let htmlWithPlaceholders = initialHtml;
+    let match;
+    const matches = [];
+    // Iterate over initialHtml to find all matches
+    while ((match = mediaLinkRegex.exec(initialHtml)) !== null) {
+      matches.push(match);
+    }
+
+    // Replace matches in reverse order to avoid index issues when modifying the string
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const currentMatch = matches[i];
+      const mediaUrl = currentMatch[1]; // The captured URL
+      const fullLinkTag = currentMatch[0]; // The full <a> tag
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
-      mediaUrls.push({ url, placeholderId });
-      return `<!--${placeholderId}-->`; // Replace the entire <a> tag with the placeholder
-    });
-    
-    // Second pass: Fetch embeds and inject them into the HTML
+      
+      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
+      
+      // Replace the full link tag with the placeholder
+      htmlWithPlaceholders = htmlWithPlaceholders.substring(0, currentMatch.index) +
+                             `<!--${placeholderId}-->` +
+                             htmlWithPlaceholders.substring(currentMatch.index + fullLinkTag.length);
+    }
+
+    // 3. Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
       setIsLoadingContent(true);
-      let currentHtml = tempHtml;
-      let twitterScriptNeeded = false;
+      let finalHtml = htmlWithPlaceholders; // Start with HTML that has placeholders
 
       const embedPromises = mediaUrls.map(async ({ url, placeholderId }) => {
         try {
@@ -104,13 +116,13 @@ export default function ArticleScreen() {
           const data: EmbedData = await response.json();
           if (data.embedHtml) {
             if (data.isTwitterEmbed) {
-              twitterScriptNeeded = true;
+              hasTwitterScriptLoaded.current = true; // Mark that Twitter script is needed
             }
             return { placeholderId, embedHtml: data.embedHtml };
           }
         } catch (error) {
           console.error(`Error fetching embed for ${url}:`, error);
-          return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed.</p>` };
+          return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed for ${url}.</p>` };
         }
         return { placeholderId, embedHtml: '' }; // Return empty if no embedHtml
       });
@@ -120,14 +132,14 @@ export default function ArticleScreen() {
       // Replace placeholders with fetched HTML
       results.forEach(result => {
         if (result) {
-          currentHtml = currentHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
+          finalHtml = finalHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
         }
       });
 
-      setProcessedHtml(currentHtml);
+      setProcessedHtml(finalHtml);
       setIsLoadingContent(false);
 
-      if (twitterScriptNeeded && !hasTwitterScriptLoaded.current && Platform.OS === 'web') {
+      if (hasTwitterScriptLoaded.current && Platform.OS === 'web') {
         const scriptId = 'twitter-wjs';
         if (!document.getElementById(scriptId)) {
           const script = document.createElement('script');
@@ -136,7 +148,6 @@ export default function ArticleScreen() {
           script.async = true;
           script.charset = "utf-8";
           document.body.appendChild(script);
-          hasTwitterScriptLoaded.current = true;
         }
       }
     };
@@ -144,7 +155,7 @@ export default function ArticleScreen() {
     if (mediaUrls.length > 0) {
       fetchAndInjectEmbeds();
     } else {
-      setProcessedHtml(tempHtml); // No embeds to fetch, use original processed HTML
+      setProcessedHtml(htmlWithPlaceholders); // No embeds to fetch, use processed HTML directly
       setIsLoadingContent(false);
     }
   }, [article]); // Re-run when article changes
@@ -224,10 +235,10 @@ export default function ArticleScreen() {
               </View>
             )}
           </View>
-          {/* First Image (Desktop Web Only) - Moved here */}
-          {isDesktopWeb && firstImageSrc && (
-            <View style={styles.desktopFirstImageWrapper}>
-              <Image source={{ uri: firstImageSrc }} style={styles.desktopFirstImage} resizeMode="cover" />
+          {/* First Image (Now for all platforms, with responsive styles) */}
+          {firstImageSrc && (
+            <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
+              <Image source={{ uri: firstImageSrc }} style={[styles.firstImage, isDesktopWeb && styles.desktopFirstImage]} resizeMode="cover" />
             </View>
           )}
         </View>
@@ -235,7 +246,7 @@ export default function ArticleScreen() {
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
-              <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].cardBorder }]}>
+              <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].skeletonBackground }]}>
                 <SkeletonText lines={15} />
               </View>
             ) : (
@@ -318,15 +329,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 8,
   },
-  desktopFirstImageWrapper: {
+  firstImageWrapper: { // New base style for image wrapper
     width: '100%',
+    marginBottom: 24,
+    paddingHorizontal: 20, // Match contentContainer padding
+  },
+  desktopFirstImageWrapper: { // Desktop specific overrides
     maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
     alignSelf: 'center',
-    marginBottom: 24, // Space between image and title
+    paddingHorizontal: 16, // Match desktopContentContainer padding
   },
-  desktopFirstImage: {
+  firstImage: { // New base style for image
     width: '100%',
-    height: 400, // Example height, adjust as needed
+    height: 200, // Default height for mobile
     borderRadius: 8,
+  },
+  desktopFirstImage: { // Desktop specific overrides
+    height: 400, // Larger height for desktop
   },
 });
