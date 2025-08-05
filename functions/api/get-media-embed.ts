@@ -3,7 +3,7 @@ import type { PagesFunction } from '@cloudflare/workers-types';
 
 interface Env {}
 
-// Utility to extract YouTube video ID
+// Utility to extract YouTube video ID from various YouTube URLs
 function getYouTubeVideoId(url: string): string | null {
   if (!url) return null;
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/|)([\w-]{11})(?:\S+)?/i;
@@ -73,58 +73,49 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         const mediaHtml = await mediaResponse.text();
         const $$ = load(mediaHtml);
 
-        // --- Step 1: Prioritize direct embeds from iframes or oEmbed data within the Medium page ---
-        let foundSpecificEmbed = false;
+        let foundEmbed = false;
 
-        // Check for YouTube iframes
+        // 1. Check for iframes first (most common for media embeds)
         $$('iframe').each((i, el) => {
             const iframeSrc = $$(el).attr('src');
             if (iframeSrc) {
                 const youtubeId = getYouTubeVideoId(iframeSrc);
+                const deezerInfo = getDeezerId(iframeSrc);
+                const applePodcastInfo = getApplePodcastInfo(iframeSrc);
+
                 if (youtubeId) {
+                    // Construct a clean YouTube embed
                     embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
-                    foundSpecificEmbed = true;
+                    foundEmbed = true;
                     return false; // Break out of .each loop
+                } else if (deezerInfo) {
+                    // Construct a clean Deezer embed
+                    embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
+                    foundEmbed = true;
+                    return false;
+                } else if (applePodcastInfo) {
+                    // Construct a clean Apple Podcast embed
+                    const embedSrc = `https://embed.podcasts.apple.com/${applePodcastInfo.country}/podcast/id${applePodcastInfo.podcastId}${applePodcastInfo.episodeId ? `?i=${applePodcastInfo.episodeId}` : ''}`;
+                    const embedHeight = applePodcastInfo.episodeId ? 175 : 450;
+                    embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:0;transform:translateZ(0);"></iframe>`;
+                    foundEmbed = true;
+                    return false;
                 }
             }
         });
 
-        if (!foundSpecificEmbed) {
-            // Check for Deezer iframes
-            $$('iframe').each((i, el) => {
-                const iframeSrc = $$(el).attr('src');
-                if (iframeSrc && iframeSrc.includes('deezer.com/plugins/player')) {
-                    embedHtml = $$(el).prop('outerHTML');
-                    foundSpecificEmbed = true;
-                    return false;
-                }
-            });
-        }
-
-        if (!foundSpecificEmbed) {
-            // Check for Apple Podcast iframes
-            $$('iframe').each((i, el) => {
-                const iframeSrc = $$(el).attr('src');
-                if (iframeSrc && iframeSrc.includes('podcasts.apple.com/embed')) {
-                    embedHtml = $$(el).prop('outerHTML');
-                    foundSpecificEmbed = true;
-                    return false;
-                }
-            });
-        }
-
-        // --- Step 2: If no specific iframe, look for Twitter blockquotes ---
-        if (!foundSpecificEmbed) {
+        // 2. If no specific media iframe, look for Twitter blockquotes
+        if (!foundEmbed) {
             const twitterBlockquote = $$('blockquote.twitter-tweet, div.twitter-tweet').first();
             if (twitterBlockquote.length > 0) {
                 embedHtml = twitterBlockquote.prop('outerHTML');
                 isTwitterEmbed = true;
-                foundSpecificEmbed = true;
+                foundEmbed = true;
             }
         }
 
-        // --- Step 3: Fallback to document.write in script tags if nothing else found ---
-        if (!foundSpecificEmbed) {
+        // 3. Fallback to document.write in script tags (less common but sometimes used)
+        if (!foundEmbed) {
             $$('script').each((i, el) => {
                 const scriptContent = $$(el).html();
                 if (scriptContent) {
@@ -138,7 +129,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
                         if (decodedHtml.includes('twitter-tweet')) {
                             isTwitterEmbed = true;
                         }
-                        foundSpecificEmbed = true;
+                        foundEmbed = true;
                         return false; // Break out of .each loop
                     }
                 }
