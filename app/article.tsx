@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ArticleHeader from '@/components/ArticleHeader';
 import { Clock, ChevronLeft } from 'lucide-react-native';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { BlurView } => 'expo-blur';
+import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
 import '../styles/article.css';
