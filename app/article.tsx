@@ -123,9 +123,9 @@ function IframeRenderer({ tnode }: { tnode: TNode }) {
 const EmbedPlaceholderRenderer = ({ tnode, extraData }: CustomRendererProps<TNode> & { extraData: ArticleRenderExtraData }) => {
   const { embedId } = tnode.attributes;
   const { fetchedEmbeds } = extraData; // Access directly from extraData
-  const embedHtml = fetchedEmbeds?.[embedId];
   const { isDesktopWeb } = useResponsiveLayout();
   const colorScheme = useColorScheme() ?? 'light';
+  const embedHtml = fetchedEmbeds?.[embedId];
 
   if (!embedHtml) {
     return (
