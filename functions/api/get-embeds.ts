@@ -1,11 +1,9 @@
 import { load } from 'cheerio';
-import type { PagesFunction } from '@cloudflare/workers-types';
+import type { PagesFunction, EventContext } from '@cloudflare/workers-types';
 
 interface Env {}
 
-// By removing `: PagesFunction<Env>`, we let TypeScript infer the return type,
-// which resolves the type conflict with Cloudflare's specific Response type.
-export const onRequestGet = async ({ request }) => {
+export const onRequestGet = async ({ request }: EventContext<Env, any, Record<string, unknown>>) => {
   try {
     const url = new URL(request.url);
     const articleUrl = url.searchParams.get('articleUrl');

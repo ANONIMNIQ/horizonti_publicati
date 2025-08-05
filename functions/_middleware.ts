@@ -1,4 +1,4 @@
-import type { PagesFunction } from '@cloudflare/workers-types';
+import type { PagesFunction, EventContext } from '@cloudflare/workers-types';
 
 interface Env {
   ASSETS: {
@@ -6,9 +6,7 @@ interface Env {
   };
 }
 
-// By removing `: PagesFunction<Env>`, we let TypeScript infer the return type,
-// which resolves the type conflict with Cloudflare's specific Response type.
-export const onRequest = async ({ request, next, env }) => {
+export const onRequest = async ({ request, next, env }: EventContext<Env, any, Record<string, unknown>>) => {
   try {
     const response = await next();
     if (response.status === 404) {
