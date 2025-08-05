@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import RenderHTML from 'react-native-render-html';
+import RenderHTML, { TNode } from 'react-native-render-html';
 import { decode } from 'html-entities';
 import WebView from 'react-native-webview';
 import { Article } from '@/types';
@@ -43,7 +43,7 @@ function getYouTubeEmbedUrl(url: string): string | null {
 }
 
 // Renderer for <iframe> tags (used only for native)
-function IframeRenderer({ tnode }) {
+function IframeRenderer({ tnode }: { tnode: TNode }) {
   const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'light';
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +89,7 @@ function IframeRenderer({ tnode }) {
 }
 
 // Custom renderer for <a> tags (used only for native)
-function LinkRenderer({ tnode, children, style }) {
+function LinkRenderer({ tnode, children, style }: { tnode: TNode, children: React.ReactNode, style: any }) {
   const { href, class: className } = tnode.attributes; // Get the class attribute
   const colorScheme = useColorScheme() ?? 'light';
   const { isDesktopWeb } = useResponsiveLayout();
@@ -106,7 +106,7 @@ function LinkRenderer({ tnode, children, style }) {
         height: '315',
       },
     };
-    return <IframeRenderer tnode={iframeTnode} />;
+    return <IframeRenderer tnode={iframeTnode as any} />;
   } else if (isExternalLinkButton) {
     // If it's an external link button, render a Pressable using comments button styles
     return (
@@ -137,7 +137,7 @@ function LinkRenderer({ tnode, children, style }) {
 }
 
 // Custom renderer for <img> tags (used only for native)
-function ImageRenderer({ tnode }) {
+function ImageRenderer({ tnode }: { tnode: TNode }) {
   const { src, alt } = tnode.attributes;
   const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'light';
@@ -220,7 +220,7 @@ function ImageRenderer({ tnode }) {
 }
 
 // New component for the first image/iframe
-function FirstMediaComponent({ mediaData }) {
+function FirstMediaComponent({ mediaData }: { mediaData: { type: 'img' | 'iframe' | null; src: string; alt?: string; width?: string; height?: string } | null }) {
   const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'light';
   const [isLoading, setIsLoading] = useState(true);
@@ -363,7 +363,7 @@ export default function ArticleScreen() {
     rawContent = rawContent.replace(mediumFooterRegex, '');
 
     let tempContent = rawContent;
-    let extractedMedia = null;
+    let extractedMedia: { type: 'img' | 'iframe' | null; src: string; alt?: string; width?: string; height?: string } | null = null;
 
     // First, try to find the first image
     const imgRegex = /<img\s+[^>]*src="([^"]+)"(?:[^>]*alt="([^"]*)")?[^>]*>/i;
@@ -481,7 +481,7 @@ export default function ArticleScreen() {
       color: Colors[colorScheme].text,
       fontSize: 17,
       lineHeight: 28,
-      fontWeight: '300',
+      fontWeight: '300' as const,
       margin: 0, // Ensure no default margin
       padding: 0, // Ensure no default padding
       alignItems: 'flex-start', // Crucial for left alignment of content
@@ -492,17 +492,17 @@ export default function ArticleScreen() {
     p: {
       marginBottom: 16,
       color: Colors[colorScheme].text,
-      fontWeight: '300',
+      fontWeight: '300' as const,
       alignItems: 'flex-start', // Ensure paragraphs also align left
       margin: 0, // Explicitly set margin
       padding: 0, // Explicitly set padding
     },
-    h1: { fontSize: 32, fontWeight: 'bold', marginBottom: 16, lineHeight: 40, color: Colors[colorScheme].text },
-    h2: { fontSize: 28, fontWeight: 'bold', marginBottom: 16, lineHeight: 36, color: Colors[colorScheme].text },
-    h3: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, lineHeight: 32, color: Colors[colorScheme].text },
+    h1: { fontSize: 32, fontWeight: 'bold' as const, marginBottom: 16, lineHeight: 40, color: Colors[colorScheme].text },
+    h2: { fontSize: 28, fontWeight: 'bold' as const, marginBottom: 16, lineHeight: 36, color: Colors[colorScheme].text },
+    h3: { fontSize: 24, fontWeight: 'bold' as const, marginBottom: 16, lineHeight: 32, color: Colors[colorScheme].text },
     pre: { backgroundColor: Colors[colorScheme].cardBorder, padding: 16, borderRadius: 8, color: Colors[colorScheme].text },
     code: { fontFamily: 'monospace', color: Colors[colorScheme].text },
-    li: { color: Colors[colorScheme].text, fontSize: 17, lineHeight: 28, marginBottom: 8, fontWeight: '300' },
+    li: { color: Colors[colorScheme].text, fontSize: 17, lineHeight: 28, marginBottom: 8, fontWeight: '300' as const },
     img: {
       marginBottom: 16,
       overflow: 'hidden',
@@ -685,10 +685,10 @@ export default function ArticleScreen() {
                 <RenderHTML
                   contentWidth={renderHtmlContentWidth}
                   source={{ html: contentHtml }}
-                  tagsStyles={tagsStyles}
-                  renderers={renderers}
+                  tagsStyles={tagsStyles as any}
+                  renderers={renderers as any}
                   enableExperimentalMarginCollapsing={true}
-                  containerStyle={{
+                  baseStyle={{
                     width: renderHtmlContentWidth,
                     paddingHorizontal: 0,
                     marginHorizontal: 0,

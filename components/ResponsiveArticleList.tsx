@@ -5,6 +5,8 @@ import {
   FlatList,
   StyleSheet,
   useColorScheme,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { Article } from '@/types';
 import { Colors } from '@/constants/Colors';
@@ -19,6 +21,7 @@ interface ResponsiveArticleListProps {
   loading: boolean;
   error: Error | null;
   contentTopPadding?: number; // New prop for top padding
+  contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
 const NUM_COLUMNS_DESKTOP = 3;
@@ -29,6 +32,7 @@ export default function ResponsiveArticleList({
   loading,
   error,
   contentTopPadding = 0, // Default to 0
+  contentContainerStyle,
 }: ResponsiveArticleListProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const { isDesktopWeb } = useResponsiveLayout();
@@ -113,6 +117,7 @@ export default function ResponsiveArticleList({
         contentContainerStyle: [
           styles.desktopArticleList,
           { paddingTop: contentTopPadding },
+          contentContainerStyle,
         ],
       };
     }
@@ -122,6 +127,7 @@ export default function ResponsiveArticleList({
       contentContainerStyle: [
         styles.mobileArticleList,
         { paddingTop: contentTopPadding },
+        contentContainerStyle,
       ],
     };
   };

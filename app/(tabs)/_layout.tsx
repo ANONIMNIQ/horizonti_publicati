@@ -17,7 +17,6 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors[colorScheme].tint,
         tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
         tabBarShowLabel: false,
-        tabBarAnimation: Platform.OS === 'web' ? 'fade' : 'shift',
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: 'transparent',

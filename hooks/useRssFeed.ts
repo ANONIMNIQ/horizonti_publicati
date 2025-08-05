@@ -74,7 +74,7 @@ export function useRssFeed() {
 
           // 1. Process <a> tags with Medium media redirect links
           const mediumYoutubeLinkRegex = /<a\s+([^>]*?)href="(https:\/\/medium\.com\/media\/[^"]+)"([^>]*?)>(.*?)<\/a>/gi;
-          processedContent = processedContent.replace(mediumYoutubeLinkRegex, (fullMatch, beforeHref, mediumHref, afterHref, linkContent) => {
+          processedContent = processedContent.replace(mediumYoutubeLinkRegex, (fullMatch: string, beforeHref: string, mediumHref: string, afterHref: string, linkContent: string) => {
             const actualYoutubeUrl = extractActualYouTubeUrl(mediumHref);
             if (actualYoutubeUrl) {
               // Replace the Medium redirect link with the actual YouTube URL
@@ -86,7 +86,7 @@ export function useRssFeed() {
 
           // 2. Process <iframe> tags with Medium media redirect links in their src
           const mediumIframeSrcRegex = /<iframe\s+([^>]*?)src="(https:\/\/medium\.com\/media\/[^"]+)"([^>]*?)>/gi;
-          processedContent = processedContent.replace(mediumIframeSrcRegex, (fullMatch, beforeSrc, mediumSrc, afterSrc) => {
+          processedContent = processedContent.replace(mediumIframeSrcRegex, (fullMatch: string, beforeSrc: string, mediumSrc: string, afterSrc: string) => {
             const actualYoutubeUrl = extractActualYouTubeUrl(mediumSrc);
             if (actualYoutubeUrl) {
               // Replace the Medium redirect src with the actual YouTube embed URL

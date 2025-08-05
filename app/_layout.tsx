@@ -131,23 +131,9 @@ export default function RootLayout() {
           options={{
             headerShown: false,
             presentation: 'card',
-            headerBackTitleVisible: false,
             headerBackTitle: '',
             headerTitle: '',
-            cardStyleInterpolator: ({ current, layouts }) => {
-              return {
-                cardStyle: {
-                  transform: [
-                    {
-                      translateX: current.progress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [layouts.screen.width, 0],
-                      }),
-                    },
-                  ],
-                },
-              };
-            },
+            animation: 'slide_from_right',
           }}
         />
         <Stack.Screen name="+not-found" />

@@ -22,7 +22,7 @@ export default function PWAInstallPrompt() {
   useEffect(() => {
     if (Platform.OS !== 'web') return; // Only run on web
 
-    const isIOSDeviceOnWeb = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isIOSDeviceOnWeb = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const hasDismissedIOSInstructions = localStorage.getItem('pwa_ios_dismissed') === 'true';
 
     const handleBeforeInstallPrompt = (e: Event) => {

@@ -8,7 +8,7 @@ export const Colors = {
     tabIconSelected: '#6366F1',
     cardBackground: 'rgba(255, 255, 255, 0.8)',
     cardBorder: 'rgba(0, 0, 0, 0.1)',
-    blurTint: 'light',
+    blurTint: 'light' as const,
     skeletonBackground: '#E0E0E0', // Light gray for skeleton
     commentsButtonBackground: '#000000',
     commentsButtonBackgroundPressed: '#00000080',
@@ -24,7 +24,7 @@ export const Colors = {
     tabIconSelected: '#6366F1',
     cardBackground: 'rgba(255, 255, 255, 0.08)',
     cardBorder: 'rgba(255, 255, 255, 0.1)',
-    blurTint: 'dark',
+    blurTint: 'dark' as const,
     skeletonBackground: '#333333', // Darker gray for skeleton
     commentsButtonBackground: '#FFFFFF',
     commentsButtonBackgroundPressed: '#FFFFFF80',
