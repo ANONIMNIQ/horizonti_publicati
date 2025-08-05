@@ -23,16 +23,89 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
-import SkeletonText from '@/components/SkeletonText'; // Import SkeletonText
+import SkeletonText from '@/components/SkeletonText';
+import RenderHtml from 'react-native-render-html'; // Import RenderHtml
+import { WebView } from 'react-native-webview'; // Import WebView
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
 
-// Define a type for the fetched embed data from the API
 interface EmbedData {
   embedHtml: string;
   isTwitterEmbed: boolean;
 }
+
+// Define nativeHtmlTagsStyles outside the component to avoid re-creation
+const nativeHtmlTagsStyles = (colorScheme: 'light' | 'dark', textColors: any) => ({
+  p: {
+    fontSize: 17,
+    lineHeight: 28,
+    fontWeight: '300',
+    marginBottom: 16,
+    color: textColors.text,
+  },
+  h1: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    lineHeight: 40,
+    marginBottom: 16,
+    color: textColors.text,
+  },
+  h2: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    lineHeight: 36,
+    marginBottom: 16,
+    color: textColors.text,
+  },
+  h3: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    lineHeight: 32,
+    marginBottom: 16,
+    color: textColors.text,
+  },
+  ul: {
+    marginLeft: 20,
+    marginBottom: 16,
+  },
+  ol: {
+    marginLeft: 20,
+    marginBottom: 16,
+  },
+  li: {
+    fontSize: 17,
+    lineHeight: 28,
+    fontWeight: '300',
+    marginBottom: 8,
+    color: textColors.text,
+  },
+  img: {
+    maxWidth: '100%',
+    height: 'auto',
+    marginBottom: 16,
+    borderRadius: 0,
+  },
+  iframe: {
+    width: '100%',
+    height: 300, // Default height, will be overridden by custom renderer
+    borderWidth: 0,
+    marginBottom: 16,
+    borderRadius: 0,
+  },
+  pre: {
+    backgroundColor: textColors.skeletonBackground,
+    padding: 16,
+    borderRadius: 8,
+    overflowX: 'scroll',
+    marginBottom: 16,
+  },
+  code: {
+    fontFamily: 'monospace',
+    color: textColors.text,
+  },
+});
+
 
 export default function ArticleScreen() {
   const { article: articleString } = useLocalSearchParams<{ article: string }>();
@@ -42,7 +115,7 @@ export default function ArticleScreen() {
   const router = useRouter();
 
   const [processedHtml, setProcessedHtml] = useState('');
-  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null); // State for the first image
+  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const hasTwitterScriptLoaded = useRef(false);
 
@@ -50,6 +123,8 @@ export default function ArticleScreen() {
     if (!articleString) return null;
     return JSON.parse(articleString);
   }, [articleString]);
+
+  const tagsStyles = useMemo(() => nativeHtmlTagsStyles(colorScheme, Colors[colorScheme]), [colorScheme]);
 
   useEffect(() => {
     if (!article) {
@@ -60,49 +135,42 @@ export default function ArticleScreen() {
     let initialHtml = article['content:encoded'];
     let extractedFirstImage: string | null = null;
 
-    // 1. Extract the first image and remove it from the HTML
     const firstImageMatch = initialHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
     if (firstImageMatch) {
       extractedFirstImage = firstImageMatch[1];
       setFirstImageSrc(extractedFirstImage);
-      initialHtml = initialHtml.replace(firstImageMatch[0], ''); // Remove the first image tag
+      initialHtml = initialHtml.replace(firstImageMatch[0], '');
     } else {
       setFirstImageSrc(null);
     }
 
-    // 2. Identify and replace media links with placeholders
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
     
-    // Use a temporary string to build the HTML with placeholders
     let htmlWithPlaceholders = initialHtml;
     let match;
     const matches = [];
-    // Iterate over initialHtml to find all matches
     while ((match = mediaLinkRegex.exec(initialHtml)) !== null) {
       matches.push(match);
     }
 
-    // Replace matches in reverse order to avoid index issues when modifying the string
     for (let i = matches.length - 1; i >= 0; i--) {
       const currentMatch = matches[i];
-      const mediaUrl = currentMatch[1]; // The captured URL
-      const fullLinkTag = currentMatch[0]; // The full <a> tag
+      const mediaUrl = currentMatch[1];
+      const fullLinkTag = currentMatch[0];
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
       
-      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
+      mediaUrls.unshift({ url: mediaUrl, placeholderId });
       
-      // Replace the full link tag with the placeholder
       htmlWithPlaceholders = htmlWithPlaceholders.substring(0, currentMatch.index) +
                              `<!--${placeholderId}-->` +
                              htmlWithPlaceholders.substring(currentMatch.index + fullLinkTag.length);
     }
 
-    // 3. Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
       setIsLoadingContent(true);
-      let finalHtml = htmlWithPlaceholders; // Start with HTML that has placeholders
+      let finalHtml = htmlWithPlaceholders;
 
       const embedPromises = mediaUrls.map(async ({ url, placeholderId }) => {
         try {
@@ -116,7 +184,7 @@ export default function ArticleScreen() {
           const data: EmbedData = await response.json();
           if (data.embedHtml) {
             if (data.isTwitterEmbed) {
-              hasTwitterScriptLoaded.current = true; // Mark that Twitter script is needed
+              hasTwitterScriptLoaded.current = true;
             }
             return { placeholderId, embedHtml: data.embedHtml };
           }
@@ -124,12 +192,11 @@ export default function ArticleScreen() {
           console.error(`Error fetching embed for ${url}:`, error);
           return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed for ${url}.</p>` };
         }
-        return { placeholderId, embedHtml: '' }; // Return empty if no embedHtml
+        return { placeholderId, embedHtml: '' };
       });
 
       const results = await Promise.all(embedPromises);
 
-      // Replace placeholders with fetched HTML
       results.forEach(result => {
         if (result) {
           finalHtml = finalHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
@@ -155,10 +222,10 @@ export default function ArticleScreen() {
     if (mediaUrls.length > 0) {
       fetchAndInjectEmbeds();
     } else {
-      setProcessedHtml(htmlWithPlaceholders); // No embeds to fetch, use processed HTML directly
+      setProcessedHtml(htmlWithPlaceholders);
       setIsLoadingContent(false);
     }
-  }, [article]); // Re-run when article changes
+  }, [article]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -235,7 +302,6 @@ export default function ArticleScreen() {
               </View>
             )}
           </View>
-          {/* First Image (Now for all platforms, with responsive styles) */}
           {firstImageSrc && (
             <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
               <Image source={{ uri: firstImageSrc }} style={[styles.firstImage, isDesktopWeb && styles.desktopFirstImage]} resizeMode="cover" />
@@ -250,11 +316,42 @@ export default function ArticleScreen() {
                 <SkeletonText lines={15} />
               </View>
             ) : (
-              <WebHtmlRenderer
-                htmlContent={processedHtml}
-                className="article-content"
-                style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
-              />
+              Platform.OS === 'web' ? (
+                <WebHtmlRenderer
+                  htmlContent={processedHtml}
+                  className="article-content"
+                  style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
+                />
+              ) : (
+                <RenderHtml
+                  contentWidth={width - 40} // Adjust for horizontal padding
+                  source={{ html: processedHtml }}
+                  tagsStyles={tagsStyles}
+                  renderers={{
+                    iframe: (props) => {
+                      // Extract width/height from iframe attributes if available, otherwise default
+                      const iframeWidth = props.tnode.attributes.width ? parseInt(props.tnode.attributes.width as string) : 560;
+                      const iframeHeight = props.tnode.attributes.height ? parseInt(props.tnode.attributes.height as string) : 315;
+                      const aspectRatio = iframeHeight / iframeWidth;
+                      const calculatedHeight = (width - 40) * aspectRatio; // Calculate height based on screen width and aspect ratio
+
+                      return (
+                        <View style={{ width: '100%', height: calculatedHeight, marginBottom: 16 }}>
+                          <WebView
+                            source={{ html: `<body style="margin:0;padding:0;overflow:hidden;background-color:transparent;">${props.tnode.data}</body>` }}
+                            style={{ flex: 1, backgroundColor: 'transparent' }}
+                            allowsFullscreenVideo={true}
+                            javaScriptEnabled={true}
+                            domStorageEnabled={true}
+                            startInLoadingState={true}
+                            renderLoading={() => <ActivityIndicator size="small" color={Colors[colorScheme].tint} />}
+                          />
+                        </View>
+                      );
+                    },
+                  }}
+                />
+              )
             )}
           </View>
 
@@ -323,26 +420,26 @@ const styles = StyleSheet.create({
   desktopDateAuthorInner: { flexDirection: 'row', alignItems: 'center' },
   embedPlaceholder: {
     width: '100%',
-    height: 200, // Placeholder height
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
-  firstImageWrapper: { // New base style for image wrapper
+  firstImageWrapper: {
     width: '100%',
     marginBottom: 24,
-    paddingHorizontal: 20, // Match contentContainer padding
+    paddingHorizontal: 20,
   },
-  desktopFirstImageWrapper: { // Desktop specific overrides
+  desktopFirstImageWrapper: {
     maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
     alignSelf: 'center',
-    paddingHorizontal: 16, // Match desktopContentContainer padding
+    paddingHorizontal: 16,
   },
-  firstImage: { // New base style for image
+  firstImage: {
     width: '100%',
-    height: 200, // Default height for mobile
+    height: 200,
   },
-  desktopFirstImage: { // Desktop specific overrides
-    height: 400, // Larger height for desktop
+  desktopFirstImage: {
+    height: 400,
   },
 });
