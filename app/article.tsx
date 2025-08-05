@@ -126,6 +126,61 @@ export default function ArticleScreen() {
   const { isDesktopWeb } = useResponsiveLayout();
   const router = useRouter();
 
+  const [embeds, setEmbeds] = useState<string[]>([]);
+  const [isLoadingEmbeds, setIsLoadingEmbeds] = useState(true);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !articleString) {
+      setIsLoadingEmbeds(false);
+      return;
+    }
+
+    const article: Article = JSON.parse(articleString);
+    if (!article.link) {
+      setIsLoadingEmbeds(false);
+      return;
+    }
+
+    const fetchEmbeds = async () => {
+      setIsLoadingEmbeds(true);
+      try {
+        // Clean the URL by removing query parameters
+        const canonicalUrl = article.link.split('?')[0];
+        const apiUrl = `/api/get-embeds?articleUrl=${encodeURIComponent(canonicalUrl)}`;
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch embeds');
+        }
+
+        const data = await response.json();
+        if (data.embeds) {
+          setEmbeds(data.embeds);
+        }
+
+        // If there are Twitter embeds, we need to load their script
+        if (data.hasTwitterEmbed) {
+          const scriptId = 'twitter-wjs';
+          if (!document.getElementById(scriptId)) {
+            const script = document.createElement('script');
+            script.id = scriptId;
+            script.src = "https://platform.twitter.com/widgets.js";
+            script.async = true;
+            script.charset = "utf-8";
+            document.body.appendChild(script);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching embeds:", error);
+        setEmbeds([]); // Clear embeds on error
+      } finally {
+        setIsLoadingEmbeds(false);
+      }
+    };
+
+    fetchEmbeds();
+  }, [articleString]);
+
   useEffect(() => {
     if (Platform.OS === 'web') {
       document.body.classList.toggle('dark-mode', colorScheme === 'dark');
@@ -225,17 +280,21 @@ export default function ArticleScreen() {
             />
           </View>
 
-          {article.embeds && article.embeds.length > 0 && (
+          {Platform.OS === 'web' && (embeds.length > 0 || isLoadingEmbeds) && (
             <View style={[styles.embedsSection, isDesktopWeb && styles.desktopEmbedsSection]}>
               <View style={[styles.metaSeparator, { backgroundColor: Colors[colorScheme].cardBorder, marginBottom: 32 }]} />
-              {article.embeds.map((embedHtml, index) => (
-                <WebHtmlRenderer
-                  key={index}
-                  htmlContent={embedHtml}
-                  className="article-embed"
-                  style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
-                />
-              ))}
+              {isLoadingEmbeds ? (
+                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+              ) : (
+                embeds.map((embedHtml, index) => (
+                  <WebHtmlRenderer
+                    key={index}
+                    htmlContent={embedHtml}
+                    className="article-embed"
+                    style={isDesktopWeb && { paddingLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET }}
+                  />
+                ))
+              )}
             </View>
           )}
 

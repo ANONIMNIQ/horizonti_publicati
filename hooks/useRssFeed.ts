@@ -43,68 +43,21 @@ export function useRssFeed() {
         
         setFeed(data.feed);
 
-        const processedArticles = await Promise.all(
-          data.items.map(async (item: any): Promise<Article> => {
-            let contentHtml = item.content;
-            const $ = load(contentHtml);
-            const mediaLinks: string[] = [];
-            
-            // Find all medium.com/media links
-            $('a[href*="medium.com/media"]').each((i, el) => {
-              const href = $(el).attr('href');
-              if (href) {
-                mediaLinks.push(href);
-              }
-            });
-
-            // Fetch each media link to get the actual embed code
-            const embedPromises = mediaLinks.map(async (link) => {
-              try {
-                const mediaResponse = await fetch(link);
-                if (!mediaResponse.ok) return null;
-                const mediaHtml = await mediaResponse.text();
-                const $$ = load(mediaHtml);
-                // The embed code is usually inside a <script> tag in the response
-                const scriptContent = $$('script').html();
-                if (scriptContent) {
-                  // Extract the content of document.write()
-                  const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
-                  if (writeMatch && writeMatch[1]) {
-                    // Decode the escaped HTML string
-                    const decodedHtml = writeMatch[1]
-                      .replace(/\\"/g, '"')
-                      .replace(/\\'/g, "'")
-                      .replace(/\\\//g, '/');
-                    return decodedHtml;
-                  }
-                }
-                return null;
-              } catch (e) {
-                console.error(`Failed to fetch embed from ${link}`, e);
-                return null;
-              }
-            });
-
-            const resolvedEmbeds = (await Promise.all(embedPromises)).filter(Boolean) as string[];
-
-            // Remove the figure/links from the main content that we just processed
-            $('figure').remove();
-
-            return {
-              guid: item.guid,
-              link: item.link,
-              title: item.title,
-              pubDate: item.pubDate,
-              creator: item.author,
-              content: item.description,
-              isoDate: item.pubDate,
-              'content:encoded': $.html(), // Use the cleaned HTML
-              categories: (item.categories || []).map((cat: string) => cat.toLowerCase()),
-              fullContent: $.html(),
-              embeds: resolvedEmbeds,
-            };
-          })
-        );
+        const processedArticles = data.items.map((item: any): Article => {
+          return {
+            guid: item.guid,
+            link: item.link,
+            title: item.title,
+            pubDate: item.pubDate,
+            creator: item.author,
+            content: item.description,
+            isoDate: item.pubDate,
+            'content:encoded': item.content, // Keep original content:encoded
+            categories: (item.categories || []).map((cat: string) => cat.toLowerCase()),
+            fullContent: item.content, // Keep original fullContent
+            embeds: [], // Initialize as empty, will be fetched by article.tsx
+          };
+        });
 
         setArticles(processedArticles);
       } catch (e) {
