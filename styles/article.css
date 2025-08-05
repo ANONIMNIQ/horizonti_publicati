@@ -1,0 +1,135 @@
+/* styles/article.css */
+
+/* Basic reset for elements within the article content */
+.article-content p,
+.article-content h1,
+.article-content h2,
+.article-content h3,
+.article-content ul,
+.article-content ol,
+.article-content pre,
+.article-content blockquote {
+  margin-top: 0;
+  margin-bottom: 16px; /* Consistent spacing */
+}
+
+/* Base font styles for the entire article content */
+.article-content {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 17px;
+  line-height: 28px;
+  font-weight: 300;
+  color: #000; /* Default for light mode, overridden by dark mode */
+}
+
+.article-content p {
+  margin-bottom: 16px;
+  font-size: 17px;
+  line-height: 28px;
+  font-weight: 300;
+}
+
+.article-content h1 {
+  font-size: 32px;
+  font-weight: bold;
+  line-height: 40px;
+  margin-bottom: 16px;
+}
+
+.article-content h2 {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 36px;
+  margin-bottom: 16px;
+}
+
+.article-content h3 {
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 32px;
+  margin-bottom: 16px;
+}
+
+.article-content ul,
+.article-content ol {
+  margin-left: 20px; /* Indent lists */
+  margin-bottom: 16px;
+}
+
+.article-content li {
+  font-size: 17px;
+  line-height: 28px;
+  font-weight: 300;
+  margin-bottom: 8px;
+}
+
+.article-content img {
+  display: block; /* Ensures it behaves like a block element */
+  max-width: 100%; /* Ensures it doesn't overflow its container */
+  height: auto; /* Maintains aspect ratio */
+  margin-left: 0; /* Align left */
+  margin-right: auto; /* Align left */
+  margin-bottom: 16px; /* Consistent spacing */
+  object-fit: cover; /* Ensures images fill their space without distortion */
+}
+
+.article-content iframe {
+  display: block; /* Ensures it behaves like a block element */
+  width: 100%; /* Fills the container width */
+  height: auto; /* Will be overridden by JS for aspect ratio, but good fallback */
+  border: none;
+  margin-left: 0; /* Align left */
+  margin-right: auto; /* Align left */
+  margin-bottom: 16px; /* Consistent spacing */
+}
+
+/* Specific styles for links that are meant to be buttons */
+.article-content .external-link-button {
+  display: block; /* Make it a block element to allow margin: auto for centering */
+  padding: 8px 16px; /* Smaller padding */
+  border-radius: 20px; /* Adjusted border radius for smaller size */
+  text-align: center;
+  text-decoration: none;
+  width: fit-content; /* Adjust width to content */
+  /* min-width: 300px; Removed min-width */
+  margin: 8px auto 16px auto; /* Center horizontally and add vertical spacing */
+  /* Colors will be handled by JS for dynamic theming */
+}
+
+.article-content .external-link-button-text {
+  font-size: 14px; /* Smaller font size */
+  font-weight: 600; /* Match comments button font-weight */
+  line-height: 14px; /* Explicitly set line height to match font size */
+  /* Colors will be handled by JS for dynamic theming */
+}
+
+/* Ensure code blocks are styled */
+.article-content pre {
+  background-color: #f0f0f0; /* Light gray for light mode */
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto; /* For long lines of code */
+  margin-bottom: 16px;
+}
+
+.article-content code {
+  font-family: monospace;
+}
+
+/* Dark mode adjustments (example - actual colors from Colors.ts) */
+body.dark-mode .article-content {
+  color: #eee; /* Lighter text for dark mode */
+}
+
+body.dark-mode .article-content pre {
+  background-color: #333; /* Darker gray for dark mode */
+}
+
+body.dark-mode .article-content p,
+body.dark-mode .article-content h1,
+body.dark-mode .article-content h2,
+body.dark-mode .article-content h3,
+body.dark-mode .article-content li,
+body.dark-mode .article-content code {
+  color: #eee; /* Lighter text for dark mode */
+}
