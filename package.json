@@ -9,7 +9,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:cloudflare": "echo 'Starting Cloudflare build...' && npx expo export && echo 'Build complete. Listing current directory contents...' && ls -la && echo 'Attempting to copy files...' && npx copyfiles -v \"{_routes.json,_redirects}\" dist && echo 'File copy command finished.'"
+    "build:cloudflare": "echo 'Starting Cloudflare build...' && npx expo export && echo 'Build complete. Listing current directory...' && ls -la && echo 'Copying files...' && cp _routes.json dist/ && cp _redirects dist/ && echo 'File copy finished. Listing dist directory contents...' && ls -la dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
