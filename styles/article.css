@@ -78,9 +78,9 @@
   width: 100%; /* Fills the container width */
   height: auto; /* Will be overridden by JS for aspect ratio, but good fallback */
   border: none;
-  margin-left: 0; /* Align left */
-  margin-right: auto; /* Align left */
-  margin-bottom: 16px; /* Consistent spacing */
+  margin: 0 auto 16px auto; /* Center horizontally and add vertical spacing */
+  max-width: 100%; /* Ensure it doesn't overflow */
+  border-radius: 8px; /* Add some border-radius for consistency */
 }
 
 /* Specific styles for links that are meant to be buttons */

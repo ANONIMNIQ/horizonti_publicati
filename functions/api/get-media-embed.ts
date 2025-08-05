@@ -21,6 +21,20 @@ function getDeezerId(url: string): { type: string; id: string } | null {
   return null;
 }
 
+// Utility to extract Apple Podcast info
+function getApplePodcastInfo(url: string): { podcastId: string; episodeId: string; country: string } | null {
+  const applePodcastRegex = /https:\/\/podcasts\.apple\.com\/([a-z]{2})\/podcast\/[^/]+\/id(\d+)(?:\?i=(\d+))?/i;
+  const match = url.match(applePodcastRegex);
+  if (match) {
+    return {
+      country: match[1],
+      podcastId: match[2],
+      episodeId: match[3] || '', // Episode ID might be optional for podcast links
+    };
+  }
+  return null;
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
   try {
     const url = new URL(request.url);
@@ -30,18 +44,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'Missing mediaUrl' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+      }) as unknown as import("@cloudflare/workers-types").Response;
     }
 
     const youtubeId = getYouTubeVideoId(mediaUrl);
     const deezerInfo = getDeezerId(mediaUrl);
+    const applePodcastInfo = getApplePodcastInfo(mediaUrl); // New check
     let embedHtml: string | null = null;
     let isTwitterEmbed = false;
 
     if (youtubeId) {
       embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
     } else if (deezerInfo) {
-      embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=700&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
+      // Make width 100% for responsiveness
+      embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
+    } else if (applePodcastInfo) {
+      // Construct Apple Podcast embed URL
+      const embedSrc = `https://embed.podcasts.apple.com/${applePodcastInfo.country}/podcast/id${applePodcastInfo.podcastId}${applePodcastInfo.episodeId ? `?i=${applePodcastInfo.episodeId}` : ''}`;
+      // Apple recommends height 175 for episode players, or 450 for full podcast players.
+      const embedHeight = applePodcastInfo.episodeId ? 175 : 450; // Use 175 for episode, 450 for full podcast
+      embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:10px;transform:translateZ(0);"></iframe>`;
     } else {
       // Fallback for other embeds: fetch the media link and extract embed code
       try {
@@ -56,16 +78,25 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         // If there was a redirect, update the URL to the final destination
         if (mediaResponse.redirected) {
           currentFetchUrl = mediaResponse.url;
-          // Re-check for YouTube/Deezer if it redirected to a direct media link
+          // Re-check for YouTube/Deezer/Apple Podcast if it redirected to a direct media link
           const redirectedYoutubeId = getYouTubeVideoId(currentFetchUrl);
           const redirectedDeezerInfo = getDeezerId(currentFetchUrl);
+          const redirectedApplePodcastInfo = getApplePodcastInfo(currentFetchUrl); // New check
+
           if (redirectedYoutubeId) {
             embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
             return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
               headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             }) as unknown as import("@cloudflare/workers-types").Response;
           } else if (redirectedDeezerInfo) {
-            embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=700&height=350&color=ff0000&layout=dark&size=medium&type=${redirectedDeezerInfo.type}s&id=${redirectedDeezerInfo.id}&app_id=1"></iframe>`;
+            embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${redirectedDeezerInfo.type}s&id=${redirectedDeezerInfo.id}&app_id=1"></iframe>`;
+            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
+              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            }) as unknown as import("@cloudflare/workers-types").Response;
+          } else if (redirectedApplePodcastInfo) { // New block for Apple Podcasts
+            const embedSrc = `https://embed.podcasts.apple.com/${redirectedApplePodcastInfo.country}/podcast/id${redirectedApplePodcastInfo.podcastId}${redirectedApplePodcastInfo.episodeId ? `?i=${redirectedApplePodcastInfo.episodeId}` : ''}`;
+            const embedHeight = redirectedApplePodcastInfo.episodeId ? 175 : 450;
+            embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:10px;transform:translateZ(0);"></iframe>`;
             return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
               headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             }) as unknown as import("@cloudflare/workers-types").Response;
@@ -82,7 +113,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
           // 1. Look for direct iframe or blockquote embeds
           const directEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
           if (directEmbed.length > 0) {
-            embedHtml = directEmbed.html();
+            embedHtml = directEmbed.prop('outerHTML'); // Use .prop('outerHTML') to get the full tag
             if (directEmbed.hasClass('twitter-tweet')) {
               isTwitterEmbed = true;
             }
@@ -119,12 +150,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-    }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response;
   }
 };
