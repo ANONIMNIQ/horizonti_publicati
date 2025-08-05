@@ -23,7 +23,8 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
-import SkeletonHtmlContent from '@/components/SkeletonHtmlContent'; // Import the new component
+import SkeletonHtmlContent from '@/components/SkeletonHtmlContent';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'; // Import Animated components
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
@@ -43,8 +44,17 @@ export default function ArticleScreen() {
 
   const [processedHtml, setProcessedHtml] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(true);
-  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null); // New state for the first image
+  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
   const hasTwitterScriptLoaded = useRef(false);
+
+  // Shared value for image opacity animation
+  const imageOpacity = useSharedValue(0);
+
+  const animatedImageStyle = useAnimatedStyle(() => {
+    return {
+      opacity: imageOpacity.value,
+    };
+  });
 
   const article: Article = useMemo(() => {
     if (!articleString) return null;
@@ -69,38 +79,34 @@ export default function ArticleScreen() {
       // Remove the first image tag from the contentHtml
       contentHtml = contentHtml.replace(firstImageMatch[0], '');
     }
-    setFirstImageSrc(extractedFirstImageSrc); // Set the state for the first image
+    setFirstImageSrc(extractedFirstImageSrc);
 
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
-    let tempHtml = contentHtml; // Start with contentHtml after first image removal
+    let tempHtml = contentHtml;
 
     // First pass: Replace media links with unique placeholders
     let match;
     const matches = [];
-    // Reset regex lastIndex for global regex to work correctly on subsequent calls
     mediaLinkRegex.lastIndex = 0; 
-    while ((match = mediaLinkRegex.exec(contentHtml)) !== null) { // Use contentHtml here
+    while ((match = mediaLinkRegex.exec(contentHtml)) !== null) {
       matches.push(match);
     }
 
-    // Iterate matches in reverse to avoid issues with string replacement changing indices
     for (let i = matches.length - 1; i >= 0; i--) {
       const currentMatch = matches[i];
       const mediaUrl = currentMatch[1];
       const placeholderId = `EMBED_PLACEHOLDER_${embedCounter++}`;
-      // Replace the entire <a> tag with our unique placeholder string
       tempHtml = tempHtml.substring(0, currentMatch.index) +
                  `<!--${placeholderId}-->` +
                  tempHtml.substring(currentMatch.index + currentMatch[0].length);
-      mediaUrls.unshift({ url: mediaUrl, placeholderId }); // Add to beginning to maintain order
+      mediaUrls.unshift({ url: mediaUrl, placeholderId });
     }
     
-    // Second pass: Fetch embeds and inject them into the HTML
     const fetchAndInjectEmbeds = async () => {
       setIsLoadingContent(true);
-      let currentHtml = tempHtml; // Start with tempHtml which has placeholders
+      let currentHtml = tempHtml;
 
       let twitterScriptNeeded = false;
 
@@ -124,12 +130,11 @@ export default function ArticleScreen() {
           console.error(`Error fetching embed for ${url}:`, error);
           return { placeholderId, embedHtml: `<p style="color: red; text-align: center;">Failed to load embed.</p>` };
         }
-        return { placeholderId, embedHtml: '' }; // Return empty if no embedHtml
+        return { placeholderId, embedHtml: '' };
       });
 
       const results = await Promise.all(embedPromises);
 
-      // Replace placeholders with fetched HTML
       results.forEach(result => {
         if (result) {
           currentHtml = currentHtml.replace(`<!--${result.placeholderId}-->`, result.embedHtml);
@@ -156,16 +161,20 @@ export default function ArticleScreen() {
     if (mediaUrls.length > 0) {
       fetchAndInjectEmbeds();
     } else {
-      setProcessedHtml(tempHtml); // No embeds to fetch, use original processed HTML
+      setProcessedHtml(tempHtml);
       setIsLoadingContent(false);
     }
-  }, [article]); // Re-run when article changes
+  }, [article]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
       document.body.classList.toggle('dark-mode', colorScheme === 'dark');
     }
   }, [colorScheme]);
+
+  const handleImageLoad = () => {
+    imageOpacity.value = withTiming(1, { duration: 300 });
+  };
 
   if (!article) {
     return (
@@ -239,11 +248,12 @@ export default function ArticleScreen() {
         </View>
 
         {Platform.OS === 'web' && firstImageSrc && (
-          <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper]}>
-            <Image 
-              source={{ uri: firstImageSrc }} 
-              style={[styles.firstImage, !isDesktopWeb && styles.mobileWebFirstImage]} 
-              resizeMode="cover" 
+          <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper, { backgroundColor: Colors[colorScheme].skeletonBackground }]}>
+            <Animated.Image
+              source={{ uri: firstImageSrc }}
+              style={[styles.firstImage, !isDesktopWeb && styles.mobileWebFirstImage, animatedImageStyle]}
+              resizeMode="cover"
+              onLoad={handleImageLoad}
             />
           </View>
         )}
@@ -337,6 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: 24, // Space below the image
     width: '100%',
     alignItems: 'center', // Center the image if it's not full width
+    overflow: 'hidden', // Ensure image doesn't overflow wrapper
   },
   desktopFirstImageWrapper: {
     maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
