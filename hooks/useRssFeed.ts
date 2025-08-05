@@ -54,7 +54,6 @@ export function useRssFeed() {
             'content:encoded': item.content, // Keep original content:encoded
             categories: (item.categories || []).map((cat: string) => cat.toLowerCase()),
             fullContent: item.content, // Keep original fullContent
-            embeds: [], // Initialize as empty, will be fetched by article.tsx
           };
         });
 
