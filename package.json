@@ -1,15 +1,4 @@
 {
-  "name": "bolt-expo-template",
-  "main": "expo-router/entry",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "EXPO_NO_TELEMETRY=1 expo start --https",
-    "build:web": "expo export --platform web",
-    "serve:web": "serve dist",
-    "lint": "expo lint",
-    "format": "prettier --write ."
-  },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@lucide/lab": "^0.1.2",
@@ -49,6 +38,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "copyfiles": "^2.4.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "prettier": "^3.3.3",
