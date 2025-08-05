@@ -31,7 +31,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'Missing mediaUrl' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      }) as import("@cloudflare/workers-types").Response; // Explicit cast
+      }) as unknown as import("@cloudflare/workers-types").Response; // Cast to unknown first
     }
 
     const youtubeId = getYouTubeVideoId(mediaUrl);
@@ -58,20 +58,26 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         } else {
           const mediaHtml = await mediaResponse.text();
           const $$ = load(mediaHtml);
-          const scriptContent = $$('script').html();
-          if (scriptContent) {
-            const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
-            if (writeMatch && writeMatch[1]) {
-              const decodedHtml = writeMatch[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\'/g, "'")
-                .replace(/\\\//g, '/');
-              embedHtml = decodedHtml;
-              if (decodedHtml.includes('twitter-tweet')) {
-                isTwitterEmbed = true;
+          
+          // Iterate through all script tags to find the one with document.write
+          $$('script').each((i, el) => {
+            const scriptContent = $$(el).html();
+            if (scriptContent) {
+              const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
+              if (writeMatch && writeMatch[1]) {
+                const decodedHtml = writeMatch[1]
+                  .replace(/\\"/g, '"')
+                  .replace(/\\'/g, "'")
+                  .replace(/\\\//g, '/');
+                embedHtml = decodedHtml;
+                if (decodedHtml.includes('twitter-tweet')) {
+                  isTwitterEmbed = true;
+                }
+                // Found it, no need to continue
+                return false; // Break out of .each loop
               }
             }
-          }
+          });
         }
       } catch (e) {
         console.error(`Error processing media link ${mediaUrl}:`, e);
@@ -84,12 +90,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-    }) as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response; // Cast to unknown first
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    }) as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response; // Cast to unknown first
   }
 };

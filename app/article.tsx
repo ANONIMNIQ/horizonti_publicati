@@ -120,7 +120,7 @@ function IframeRenderer({ tnode }: { tnode: TNode }) {
 }
 
 // New custom renderer for our embed placeholders
-const EmbedPlaceholderRenderer = ({ tnode, extraData }: CustomRendererProps<TNode, ArticleRenderExtraData>) => {
+const EmbedPlaceholderRenderer = ({ tnode, extraData }: CustomRendererProps<TNode> & { extraData: ArticleRenderExtraData }) => {
   const { embedId } = tnode.attributes;
   const { fetchedEmbeds } = extraData; // Access directly from extraData
   const embedHtml = fetchedEmbeds?.[embedId];
@@ -346,14 +346,14 @@ export default function ArticleScreen() {
 
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
-            <RenderHTML<ArticleRenderExtraData> // Add generic type here
+            <RenderHTML
               contentWidth={renderHtmlContentWidth}
               source={{ html: processedHtml }} // Use processedHtml here
               tagsStyles={tagsStyles as any}
               renderers={customRenderers as any} // Use customRenderers
               baseStyle={{ width: renderHtmlContentWidth }}
               // Pass fetchedEmbeds as extraData to the custom renderer
-              extraData={fetchedEmbeds}
+              extraData={fetchedEmbeds as any} // Cast extraData to any
             />
           </View>
 
