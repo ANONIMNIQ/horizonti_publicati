@@ -71,7 +71,7 @@
   margin-right: auto; /* Align left */
   margin-bottom: 16px; /* Consistent spacing */
   object-fit: cover; /* Ensures images fill their space without distortion */
-  border-radius: 0; /* Removed rounded corners */
+  border-radius: 0 !important; /* Removed rounded corners */
 }
 
 .article-content iframe {
@@ -81,7 +81,7 @@
   border: none;
   margin: 0 auto 16px auto; /* Center horizontally and add vertical spacing */
   max-width: 100%; /* Ensure it doesn't overflow */
-  border-radius: 0; /* Removed rounded corners */
+  border-radius: 0 !important; /* Removed rounded corners */
 }
 
 /* Specific styles for links that are meant to be buttons */

@@ -5,6 +5,7 @@ interface Env {}
 
 // Utility to extract YouTube video ID
 function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/|)([\w-]{11})(?:\S+)?/i;
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
@@ -12,6 +13,7 @@ function getYouTubeVideoId(url: string): string | null {
 
 // Utility to extract Deezer ID (track, album, playlist)
 function getDeezerId(url: string): { type: string; id: string } | null {
+  if (!url) return null;
   const trackMatch = url.match(/deezer\.com\/track\/(\d+)/);
   if (trackMatch) return { type: 'track', id: trackMatch[1] };
   const albumMatch = url.match(/deezer\.com\/album\/(\d+)/);
@@ -23,6 +25,7 @@ function getDeezerId(url: string): { type: string; id: string } | null {
 
 // Utility to extract Apple Podcast info
 function getApplePodcastInfo(url: string): { podcastId: string; episodeId: string; country: string } | null {
+  if (!url) return null;
   const applePodcastRegex = /https:\/\/podcasts\.apple\.com\/([a-z]{2})\/podcast\/[^/]+\/id(\d+)(?:\?i=(\d+))?/i;
   const match = url.match(applePodcastRegex);
   if (match) {
@@ -70,66 +73,78 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         const mediaHtml = await mediaResponse.text();
         const $$ = load(mediaHtml);
 
-        // First, try to find a direct YouTube, Deezer, or Apple Podcast link within the fetched page's content
-        // This handles cases where Medium embeds a direct link to the media service.
-        let foundDirectMediaLink = false;
-        $$('a').each((i, el) => {
-            const href = $$(el).attr('href');
-            if (href) {
-                const youtubeId = getYouTubeVideoId(href);
-                const deezerInfo = getDeezerId(href);
-                const applePodcastInfo = getApplePodcastInfo(href);
+        // --- Step 1: Prioritize direct embeds from iframes or oEmbed data within the Medium page ---
+        let foundSpecificEmbed = false;
 
+        // Check for YouTube iframes
+        $$('iframe').each((i, el) => {
+            const iframeSrc = $$(el).attr('src');
+            if (iframeSrc) {
+                const youtubeId = getYouTubeVideoId(iframeSrc);
                 if (youtubeId) {
                     embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
-                    foundDirectMediaLink = true;
+                    foundSpecificEmbed = true;
                     return false; // Break out of .each loop
-                } else if (deezerInfo) {
-                    embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
-                    foundDirectMediaLink = true;
-                    return false;
-                } else if (applePodcastInfo) {
-                    const embedSrc = `https://embed.podcasts.apple.com/${applePodcastInfo.country}/podcast/id${applePodcastInfo.podcastId}${applePodcastInfo.episodeId ? `?i=${applePodcastInfo.episodeId}` : ''}`;
-                    const embedHeight = applePodcastInfo.episodeId ? 175 : 450;
-                    embedHtml = `<iframe src="${embedSrc}" height="${embedHeight}" frameborder="0" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation" allow="autoplay *; encrypted-media *; clipboard-write" style="width:100%;max-width:660px;overflow:hidden;border-radius:0;transform:translateZ(0);"></iframe>`;
-                    foundDirectMediaLink = true;
-                    return false;
                 }
             }
         });
 
-        if (!foundDirectMediaLink) {
-            // If no direct media link was found, then look for iframes or Twitter blockquotes
-            const iframe = $$('iframe').first();
-            if (iframe.length > 0) {
-                embedHtml = iframe.prop('outerHTML');
-            } else {
-                const twitterBlockquote = $$('blockquote.twitter-tweet, div.twitter-tweet').first();
-                if (twitterBlockquote.length > 0) {
-                    embedHtml = twitterBlockquote.prop('outerHTML');
-                    isTwitterEmbed = true;
-                } else {
-                    // Fallback to looking for document.write in script tags
-                    $$('script').each((i, el) => {
-                        const scriptContent = $$(el).html();
-                        if (scriptContent) {
-                            const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
-                            if (writeMatch && writeMatch[1]) {
-                                const decodedHtml = writeMatch[1]
-                                    .replace(/\\"/g, '"')
-                                    .replace(/\\'/g, "'")
-                                    .replace(/\\\//g, '/');
-                                embedHtml = decodedHtml;
-                                if (decodedHtml.includes('twitter-tweet')) {
-                                    isTwitterEmbed = true;
-                                }
-                                return false; // Break out of .each loop
-                            }
-                        }
-                    });
+        if (!foundSpecificEmbed) {
+            // Check for Deezer iframes
+            $$('iframe').each((i, el) => {
+                const iframeSrc = $$(el).attr('src');
+                if (iframeSrc && iframeSrc.includes('deezer.com/plugins/player')) {
+                    embedHtml = $$(el).prop('outerHTML');
+                    foundSpecificEmbed = true;
+                    return false;
                 }
+            });
+        }
+
+        if (!foundSpecificEmbed) {
+            // Check for Apple Podcast iframes
+            $$('iframe').each((i, el) => {
+                const iframeSrc = $$(el).attr('src');
+                if (iframeSrc && iframeSrc.includes('podcasts.apple.com/embed')) {
+                    embedHtml = $$(el).prop('outerHTML');
+                    foundSpecificEmbed = true;
+                    return false;
+                }
+            });
+        }
+
+        // --- Step 2: If no specific iframe, look for Twitter blockquotes ---
+        if (!foundSpecificEmbed) {
+            const twitterBlockquote = $$('blockquote.twitter-tweet, div.twitter-tweet').first();
+            if (twitterBlockquote.length > 0) {
+                embedHtml = twitterBlockquote.prop('outerHTML');
+                isTwitterEmbed = true;
+                foundSpecificEmbed = true;
             }
         }
+
+        // --- Step 3: Fallback to document.write in script tags if nothing else found ---
+        if (!foundSpecificEmbed) {
+            $$('script').each((i, el) => {
+                const scriptContent = $$(el).html();
+                if (scriptContent) {
+                    const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
+                    if (writeMatch && writeMatch[1]) {
+                        const decodedHtml = writeMatch[1]
+                            .replace(/\\"/g, '"')
+                            .replace(/\\'/g, "'")
+                            .replace(/\\\//g, '/');
+                        embedHtml = decodedHtml;
+                        if (decodedHtml.includes('twitter-tweet')) {
+                            isTwitterEmbed = true;
+                        }
+                        foundSpecificEmbed = true;
+                        return false; // Break out of .each loop
+                    }
+                }
+            });
+        }
+
     } catch (e) {
         console.error(`Error processing media link ${mediaUrl}:`, e);
         embedHtml = null;
