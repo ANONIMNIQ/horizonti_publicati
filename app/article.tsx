@@ -346,7 +346,7 @@ export default function ArticleScreen() {
 
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
-            <RenderHTML
+            <RenderHTML<ArticleRenderExtraData> // Add generic type here
               contentWidth={renderHtmlContentWidth}
               source={{ html: processedHtml }} // Use processedHtml here
               tagsStyles={tagsStyles as any}
