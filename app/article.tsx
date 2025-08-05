@@ -23,6 +23,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
+import SkeletonText from '@/components/SkeletonText'; // Import SkeletonText
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
@@ -41,6 +42,7 @@ export default function ArticleScreen() {
   const router = useRouter();
 
   const [processedHtml, setProcessedHtml] = useState('');
+  const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null); // State for the first image
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const hasTwitterScriptLoaded = useRef(false);
 
@@ -56,12 +58,26 @@ export default function ArticleScreen() {
     }
 
     const originalHtml = article['content:encoded'];
+    let tempHtml = originalHtml;
+    let extractedFirstImage: string | null = null;
+
+    // 1. Extract the first image and remove it from the HTML
+    const firstImageMatch = tempHtml.match(/<img[^>]+src="([^">]+)"[^>]*>/);
+    if (firstImageMatch) {
+      extractedFirstImage = firstImageMatch[1];
+      setFirstImageSrc(extractedFirstImage);
+      // Remove the first image tag from the HTML
+      tempHtml = tempHtml.replace(firstImageMatch[0], '');
+    } else {
+      setFirstImageSrc(null);
+    }
+
+    // 2. Process media links (YouTube, Deezer, Apple Podcasts, etc.)
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
-    let tempHtml = originalHtml;
-
+    
     // First pass: Replace media links with unique placeholders
     let match;
     const matches = [];
@@ -173,6 +189,13 @@ export default function ArticleScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors[colorScheme].background }} edges={['bottom']}>
       {!isDesktopWeb && <ArticleHeader />}
       <ScrollView contentContainerStyle={[styles.scrollContainer, isDesktopWeb && styles.desktopScrollContainer]}>
+        {/* First Image (Desktop Web Only) */}
+        {isDesktopWeb && firstImageSrc && (
+          <View style={styles.desktopFirstImageWrapper}>
+            <Image source={{ uri: firstImageSrc }} style={styles.desktopFirstImage} resizeMode="cover" />
+          </View>
+        )}
+
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.titleAndMetaWrapper, isDesktopWeb && styles.desktopTitleAndMetaWrapper]}>
             <Text style={[styles.title, isDesktopWeb && styles.desktopTitle, { color: Colors[colorScheme].text }]}>{decode(article.title)}</Text>
@@ -225,8 +248,7 @@ export default function ArticleScreen() {
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
               <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].cardBorder }]}>
-                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-                <Text style={{ color: Colors[colorScheme].text, opacity: 0.7, marginTop: 8 }}>Loading article content...</Text>
+                <SkeletonText lines={15} />
               </View>
             ) : (
               <WebHtmlRenderer
@@ -306,6 +328,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    borderRadius: 8,
+  },
+  desktopFirstImageWrapper: {
+    width: '100%',
+    maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
+    alignSelf: 'center',
+    marginBottom: 24, // Space between image and title
+  },
+  desktopFirstImage: {
+    width: '100%',
+    height: 400, // Example height, adjust as needed
     borderRadius: 8,
   },
 });

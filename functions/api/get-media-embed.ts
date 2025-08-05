@@ -110,15 +110,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
           const mediaHtml = await mediaResponse.text();
           const $$ = load(mediaHtml);
           
-          // 1. Look for direct iframe or blockquote embeds
-          const directEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
-          if (directEmbed.length > 0) {
-            embedHtml = directEmbed.prop('outerHTML'); // Use .prop('outerHTML') to get the full tag
-            if (directEmbed.hasClass('twitter-tweet')) {
+          // Look for any iframe or blockquote.twitter-tweet
+          const foundEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
+          if (foundEmbed.length > 0) {
+            embedHtml = foundEmbed.prop('outerHTML');
+            if (foundEmbed.hasClass('twitter-tweet')) {
               isTwitterEmbed = true;
             }
           } else {
-            // 2. Fallback to looking for document.write in script tags
+            // Fallback to looking for document.write in script tags
             $$('script').each((i, el) => {
               const scriptContent = $$(el).html();
               if (scriptContent) {
