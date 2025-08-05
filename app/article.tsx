@@ -23,6 +23,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
+import SkeletonHtmlContent from '@/components/SkeletonHtmlContent'; // Import the new component
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
@@ -250,10 +251,7 @@ export default function ArticleScreen() {
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.articleBodyWrapper, isDesktopWeb && styles.desktopArticleBodyWrapper]}>
             {isLoadingContent ? (
-              <View style={[styles.embedPlaceholder, { backgroundColor: Colors[colorScheme].cardBorder }]}>
-                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-                <Text style={{ color: Colors[colorScheme].text, opacity: 0.7, marginTop: 8 }}>Loading article content...</Text>
-              </View>
+              <SkeletonHtmlContent isDesktopWeb={isDesktopWeb} desktopLeftOffset={DESKTOP_TEXT_COLUMN_LEFT_OFFSET} />
             ) : (
               <WebHtmlRenderer
                 htmlContent={processedHtml}
