@@ -1,7 +1,7 @@
 {
   "version": 1,
   "include": [
-    "/get-embeds"
+    "/api/*"
   ],
   "exclude": []
 }

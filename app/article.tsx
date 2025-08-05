@@ -456,7 +456,7 @@ export default function ArticleScreen() {
       setIsLoadingEmbeds(true);
       try {
         // On local dev, this might need the full URL. On Cloudflare Pages, relative path is fine.
-        const apiUrl = `/get-embeds?articleUrl=${encodeURIComponent(article.link)}`;
+        const apiUrl = `/api/get-embeds?articleUrl=${encodeURIComponent(article.link)}`;
         const response = await fetch(apiUrl);
         
         if (!response.ok) {
