@@ -1,5 +1,5 @@
-/// <reference types="@cloudflare/workers-types" />
 import { load } from 'cheerio';
+import type { PagesFunction } from '@cloudflare/workers-types';
 
 interface Env {}
 
@@ -28,33 +28,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
     const html = await response.text();
     const $ = load(html);
 
-    const embeds: string[] = [];
-    
-    // Use a more specific selector. Medium wraps embeds in <figure> tags.
-    // We select all figures, then filter for those containing an iframe.
-    // We also select Twitter and Gist embeds directly.
-    $('figure, blockquote.twitter-tweet, .gist').each((i, el) => {
-      const element = $(el);
-      // Check if the element is a figure containing an iframe, or if it's a tweet/gist.
-      if ((element.is('figure') && element.find('iframe').length > 0) || element.is('blockquote.twitter-tweet, .gist')) {
-        embeds.push($.html(el));
-      }
-    });
-
-    const hasTwitterEmbed = $('blockquote.twitter-tweet').length > 0;
-
+    // --- TEMPORARY DEBUGGING ---
+    // We will return the title of the page to see what we're actually getting.
+    const pageTitle = $('title').text();
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
-
-    return new Response(JSON.stringify({ embeds, hasTwitterEmbed }), {
+    return new Response(JSON.stringify({ debug_title: pageTitle }), {
       headers: { 
         'Content-Type': 'application/json',
         ...corsHeaders
       },
     });
+    // --- END TEMPORARY DEBUGGING ---
+
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(JSON.stringify({ error: message }), {
