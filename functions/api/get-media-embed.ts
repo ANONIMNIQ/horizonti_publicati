@@ -101,7 +101,8 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
     if (deezerInfo) {
       // Construct the official Deezer widget player URL as specified by the user
       const widgetUrl = `https://widget.deezer.com/widget/auto/${deezerInfo.type}/${deezerInfo.id}`;
-      return `<div class="deezer-responsive"><iframe title="deezer-widget" src="${widgetUrl}" width="100%" height="300" frameborder="0" allowtransparency="true" allow="encrypted-media; clipboard-write"></iframe></div>`;
+      // Use the new wrapper class and consistent iframe attributes
+      return `<div class="deezer-embed-wrapper"><iframe title="deezer-widget" src="${widgetUrl}" width="100%" height="300" frameborder="0" allow="encrypted-media; clipboard-write"></iframe></div>`;
     }
 
     // Step 3: Fallback to scraping if direct construction failed (e.g., URL is not a standard Deezer content page)
@@ -125,8 +126,8 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
         }
         // If it's a direct Deezer widget iframe, use it
         if (iframeSrc.includes('widget.deezer.com/widget/')) {
-          // Use the same attributes as the constructed one for consistency
-          return `<div class="deezer-responsive"><iframe title="deezer-widget" src="${iframeSrc}" width="100%" height="300" frameborder="0" allowtransparency="true" allow="encrypted-media; clipboard-write"></iframe></div>`;
+          // Use the new wrapper class and consistent iframe attributes
+          return `<div class="deezer-embed-wrapper"><iframe title="deezer-widget" src="${iframeSrc}" width="100%" height="300" frameborder="0" allow="encrypted-media; clipboard-write"></iframe></div>`;
         }
       }
     }
@@ -374,7 +375,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
                       embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
                       foundScriptEmbed = true;
                       break; // Found a generic iframe, stop
-                    }
+                      }
                   } else {
                     embedHtml = decodedHtml; // Other content from document.write
                     foundScriptEmbed = true;
