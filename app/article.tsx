@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   titleAndMetaWrapper: {},
   desktopTitleAndMetaWrapper: { alignSelf: 'center', width: '100%' },
   title: { fontSize: 20, fontWeight: '500', marginBottom: 12, lineHeight: 28 },
-  desktopTitle: { fontSize: 40, fontWeight: 'bold', lineHeight: 48, marginBottom: 16 },
+  desktopTitle: { fontSize: 40, fontWeight: '500', lineHeight: 48, marginBottom: 16 },
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
   loadingOverlay: { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)' },
