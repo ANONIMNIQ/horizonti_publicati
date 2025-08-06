@@ -47,7 +47,7 @@ export default function ResponsiveArticleList({
     Math.min(INITIAL_DISPLAY_COUNT, articles.length || 0)
   );
   const [isSimulatingLoadMore, setIsSimulatingLoadMore] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // New state for button logic
+  const [hasClickedLoadMore, setHasClickedLoadMore] = useState(false);
   const flatListRef = useRef<FlatList<ListItem>>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const instanceId = useRef(0);
@@ -56,7 +56,7 @@ export default function ResponsiveArticleList({
   useEffect(() => {
     instanceId.current += 1;
     setVisibleArticleCount(Math.min(INITIAL_DISPLAY_COUNT, articles.length));
-    setHasLoadedOnce(false); // Reset button state on filter change
+    setHasClickedLoadMore(false); // Reset button state on filter change
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       setIsSimulatingLoadMore(false);
@@ -67,8 +67,6 @@ export default function ResponsiveArticleList({
     if (isSimulatingLoadMore) return;
 
     setIsSimulatingLoadMore(true);
-    setHasLoadedOnce(true); // Mark that load has been attempted
-    const firstNewArticleIndex = visibleArticleCount;
     const currentInstanceId = instanceId.current;
 
     timeoutRef.current = setTimeout(() => {
@@ -77,13 +75,26 @@ export default function ResponsiveArticleList({
         return;
       }
 
-      const newVisibleCount = Math.min(visibleArticleCount + NEXT_LOAD_COUNT, articles.length);
-      setVisibleArticleCount(newVisibleCount);
+      const potentialNewCount = visibleArticleCount + NEXT_LOAD_COUNT;
+      // If loading more would finish the list, leave one item behind.
+      // This ensures the "Show All" button will always appear after "Load More" is clicked.
+      const newVisibleCount =
+        potentialNewCount >= articles.length
+          ? Math.max(visibleArticleCount, articles.length - 1)
+          : potentialNewCount;
+
+      // If no new articles would be shown, load all of them instead.
+      if (newVisibleCount === visibleArticleCount && visibleArticleCount < articles.length) {
+        setVisibleArticleCount(articles.length);
+      } else {
+        setVisibleArticleCount(newVisibleCount);
+      }
+      
+      setHasClickedLoadMore(true);
       setIsSimulatingLoadMore(false);
       timeoutRef.current = null;
 
-      // Temporarily disabled to prevent crashes while debugging.
-      // We will re-enable this once the logic is confirmed to be stable.
+      // Scrolling is temporarily disabled to prevent crashes.
       /*
       if (flatListRef.current && newVisibleCount > firstNewArticleIndex) {
         const targetIndex = isDesktopWeb
@@ -210,12 +221,13 @@ export default function ResponsiveArticleList({
     }
 
     const allArticlesLoaded = visibleArticleCount >= articles.length;
+
     if (allArticlesLoaded) {
       return null;
     }
 
-    if (hasLoadedOnce) {
-      // After loading more once, show the "Show All" button
+    if (hasClickedLoadMore) {
+      // After "Load More" is clicked, show "Show All"
       return (
         <View style={styles.footerButtonsContainer}>
           <Pressable
