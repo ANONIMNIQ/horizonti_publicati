@@ -5,6 +5,7 @@ interface Env {}
 
 // Utility to extract YouTube video ID
 function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/|)([\w-]{11})(?:\S+)?/i;
   const match = url.match(youtubeRegex);
   return match ? match[1] : null;
@@ -31,6 +32,42 @@ function parseSpotifyUrlForInfo(url: string): { type: string; id: string } | nul
     return { type: match[1], id: match[2] };
   }
   return null;
+}
+
+/**
+ * Attempts to get the YouTube embed HTML (iframe) from a given URL.
+ */
+async function getYouTubeEmbedHtml(urlToProcess: string): Promise<string | null> {
+  try {
+    // Step 1: Fetch the URL and follow redirects to get the final YouTube page URL
+    let response = await fetch(urlToProcess, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://www.youtube.com/'
+      },
+      redirect: 'follow'
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to fetch YouTube URL (after redirect): ${response.status} for ${urlToProcess}`);
+      return null;
+    }
+
+    const finalYouTubePageUrl = response.url;
+
+    // Step 2: Extract YouTube video ID from the final URL
+    const youtubeId = getYouTubeVideoId(finalYouTubePageUrl);
+
+    if (youtubeId) {
+      // Construct the YouTube embed iframe HTML
+      return `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
+    }
+
+    return null; // No YouTube embed found or constructed
+  } catch (error) {
+    console.error(`Error getting YouTube embed for ${urlToProcess}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -224,124 +261,125 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
       }) as unknown as import("@cloudflare/workers-types").Response;
     }
 
-    const youtubeId = getYouTubeVideoId(mediaUrl);
     let embedHtml: string | null = null;
     let isTwitterEmbed = false;
 
-    if (youtubeId) {
-      embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
-    } else {
-      const deezerEmbed = await getDeezerEmbedHtml(mediaUrl);
-      if (deezerEmbed) {
-        embedHtml = deezerEmbed;
-      } else {
-        const spotifyEmbed = await getSpotifyEmbedHtml(mediaUrl);
-        if (spotifyEmbed) {
-          embedHtml = spotifyEmbed;
-        } else {
-          const applePodcastEmbed = await getApplePodcastEmbedHtml(mediaUrl); // NEW APPLE PODCASTS CHECK
-          if (applePodcastEmbed) {
-            embedHtml = applePodcastEmbed;
-          } else {
-            // Fallback for other embeds (Twitter, etc.)
-            try {
-              let currentFetchUrl = mediaUrl;
-              let mediaResponse = await fetch(currentFetchUrl, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                },
-                redirect: 'follow'
-              });
+    // Try YouTube embed first
+    embedHtml = await getYouTubeEmbedHtml(mediaUrl);
 
-              if (mediaResponse.redirected) {
-                currentFetchUrl = mediaResponse.url;
-                // Re-check for YouTube if it redirected to a direct YouTube link
-                const redirectedYoutubeId = getYouTubeVideoId(currentFetchUrl);
-                if (redirectedYoutubeId) {
-                  embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
+    if (!embedHtml) {
+      // If not YouTube, try Deezer
+      embedHtml = await getDeezerEmbedHtml(mediaUrl);
+    }
+
+    if (!embedHtml) {
+      // If not Deezer, try Spotify
+      embedHtml = await getSpotifyEmbedHtml(mediaUrl);
+    }
+
+    if (!embedHtml) {
+      // If not Spotify, try Apple Podcasts
+      embedHtml = await getApplePodcastEmbedHtml(mediaUrl);
+    }
+
+    // Fallback for other embeds (Twitter, etc.) if no specific embed was found
+    if (!embedHtml) {
+      try {
+        let currentFetchUrl = mediaUrl;
+        let mediaResponse = await fetch(currentFetchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          redirect: 'follow'
+        });
+
+        if (mediaResponse.redirected) {
+          currentFetchUrl = mediaResponse.url;
+          // Re-check for YouTube if it redirected to a direct YouTube link
+          // (This is a redundant check now that getYouTubeEmbedHtml handles redirects, but kept for robustness)
+          const redirectedYoutubeId = getYouTubeVideoId(currentFetchUrl);
+          if (redirectedYoutubeId) {
+            embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
+          }
+        }
+
+        if (!embedHtml && mediaResponse.ok) {
+          const mediaHtml = await mediaResponse.text();
+          const $$ = load(mediaHtml);
+          
+          const directEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
+          if (directEmbed.length > 0) {
+            let extractedSrc = directEmbed.attr('src');
+            if (directEmbed.is('iframe') && extractedSrc) {
+              // If it's an embedly iframe, try to extract the inner src
+              if (extractedSrc.includes('cdn.embedly.com/widgets/media.html')) {
+                const embedlyUrl = new URL(extractedSrc);
+                const innerSrcParam = embedlyUrl.searchParams.get('src');
+                if (innerSrcParam) {
+                  const decodedInnerSrc = decodeURIComponent(innerSrcParam);
+                  // If the inner src is a Deezer link, it should have been caught by getDeezerEmbedHtml already.
+                  // If not, it's some other embedly type, so use the embedly iframe itself.
+                  embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
                 }
+              } else {
+                // If it's a direct iframe (not from embedly), wrap it for responsiveness
+                embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
               }
-
-              if (!embedHtml && mediaResponse.ok) {
-                const mediaHtml = await mediaResponse.text();
-                const $$ = load(mediaHtml);
-                
-                const directEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
-                if (directEmbed.length > 0) {
-                  let extractedSrc = directEmbed.attr('src');
-                  if (directEmbed.is('iframe') && extractedSrc) {
-                    // If it's an embedly iframe, try to extract the inner src
-                    if (extractedSrc.includes('cdn.embedly.com/widgets/media.html')) {
-                      const embedlyUrl = new URL(extractedSrc);
-                      const innerSrcParam = embedlyUrl.searchParams.get('src');
-                      if (innerSrcParam) {
-                        const decodedInnerSrc = decodeURIComponent(innerSrcParam);
-                        // If the inner src is a Deezer link, it should have been caught by getDeezerEmbedHtml already.
-                        // If not, it's some other embedly type, so use the embedly iframe itself.
-                        embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
+            } else if (directEmbed.hasClass('twitter-tweet')) {
+              embedHtml = directEmbed.html();
+              isTwitterEmbed = true;
+            }
+          } else {
+            // Fallback to looking for document.write in script tags
+            const scriptElements = $$('script');
+            let foundScriptEmbed = false;
+            for (let i = 0; i < scriptElements.length; i++) {
+              const scriptContent = $$(scriptElements[i]).html();
+              if (scriptContent) {
+                const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
+                if (writeMatch && writeMatch[1]) {
+                  const decodedHtml = writeMatch[1]
+                    .replace(/\\"/g, '"')
+                    .replace(/\\'/g, "'")
+                    .replace(/\\\//g, '/');
+                  
+                  if (decodedHtml.includes('twitter-tweet')) {
+                    isTwitterEmbed = true;
+                    embedHtml = decodedHtml;
+                    foundScriptEmbed = true;
+                    break; // Found a Twitter embed, stop
+                  } else if (decodedHtml.includes('<iframe')) {
+                    const iframeSrcMatch = decodedHtml.match(/<iframe[^>]+src="([^">]+)"/);
+                    if (iframeSrcMatch) {
+                      // If it's an iframe, try to resolve it as Deezer or wrap as generic video
+                      const deezerHtml = await getDeezerEmbedHtml(iframeSrcMatch[1]);
+                      if (deezerHtml) {
+                        embedHtml = deezerHtml;
+                        foundScriptEmbed = true;
+                        break; // Found a Deezer embed, stop
+                      } else {
+                        embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
+                        foundScriptEmbed = true;
+                        break; // Found a generic iframe, stop
                       }
                     } else {
-                      // If it's a direct iframe (not from embedly), wrap it for responsiveness
-                      embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
+                      embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
+                      foundScriptEmbed = true;
+                      break; // Found a generic iframe, stop
                     }
-                  } else if (directEmbed.hasClass('twitter-tweet')) {
-                    embedHtml = directEmbed.html();
-                    isTwitterEmbed = true;
-                  }
-                } else {
-                  // Fallback to looking for document.write in script tags
-                  const scriptElements = $$('script');
-                  let foundScriptEmbed = false;
-                  for (let i = 0; i < scriptElements.length; i++) {
-                    const scriptContent = $$(scriptElements[i]).html();
-                    if (scriptContent) {
-                      const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
-                      if (writeMatch && writeMatch[1]) {
-                        const decodedHtml = writeMatch[1]
-                          .replace(/\\"/g, '"')
-                          .replace(/\\'/g, "'")
-                          .replace(/\\\//g, '/');
-                        
-                        if (decodedHtml.includes('twitter-tweet')) {
-                          isTwitterEmbed = true;
-                          embedHtml = decodedHtml;
-                          foundScriptEmbed = true;
-                          break; // Found a Twitter embed, stop
-                        } else if (decodedHtml.includes('<iframe')) {
-                          const iframeSrcMatch = decodedHtml.match(/<iframe[^>]+src="([^">]+)"/);
-                          if (iframeSrcMatch) {
-                            // If it's an iframe, try to resolve it as Deezer or wrap as generic video
-                            const deezerHtml = await getDeezerEmbedHtml(iframeSrcMatch[1]);
-                            if (deezerHtml) {
-                              embedHtml = deezerHtml;
-                              foundScriptEmbed = true;
-                              break; // Found a Deezer embed, stop
-                            } else {
-                              embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
-                              foundScriptEmbed = true;
-                              break; // Found a generic iframe, stop
-                            }
-                          } else {
-                            embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
-                            foundScriptEmbed = true;
-                            break; // Found a generic iframe, stop
-                          }
-                        } else {
-                          embedHtml = decodedHtml; // Other content from document.write
-                          foundScriptEmbed = true;
-                          break; // Found something, stop
-                        }
-                      }
-                    }
+                  } else {
+                    embedHtml = decodedHtml; // Other content from document.write
+                    foundScriptEmbed = true;
+                    break; // Found something, stop
                   }
                 }
               }
-            } catch (e) {
-              console.error(`Error processing media link ${mediaUrl}:`, e);
-              embedHtml = null;
             }
           }
         }
+      } catch (e) {
+        console.error(`Error processing media link ${mediaUrl}:`, e);
+        embedHtml = null;
       }
     }
 
