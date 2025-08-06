@@ -24,7 +24,7 @@ import { BlurView } from 'expo-blur';
 import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
 import SkeletonHtmlContent from '@/components/SkeletonHtmlContent';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'; // Import Animated components
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import '../styles/article.css';
 
 const DESKTOP_TEXT_COLUMN_LEFT_OFFSET = 408;
@@ -248,10 +248,18 @@ export default function ArticleScreen() {
         </View>
 
         {Platform.OS === 'web' && firstImageSrc && (
-          <View style={[styles.firstImageWrapper, isDesktopWeb && styles.desktopFirstImageWrapper, { backgroundColor: Colors[colorScheme].skeletonBackground }]}>
+          <View style={[
+            styles.firstImageWrapper,
+            isDesktopWeb && styles.desktopFirstImageWrapper,
+            { backgroundColor: Colors[colorScheme].skeletonBackground }
+          ]}>
             <Animated.Image
               source={{ uri: firstImageSrc }}
-              style={[styles.firstImage, !isDesktopWeb && styles.mobileWebFirstImage, animatedImageStyle]}
+              style={[
+                styles.firstImage,
+                !isDesktopWeb && styles.mobileWebFirstImage,
+                animatedImageStyle,
+              ]}
               resizeMode="cover"
               onLoad={handleImageLoad}
             />
@@ -344,18 +352,18 @@ const styles = StyleSheet.create({
   },
   // New styles for the first image
   firstImageWrapper: {
-    marginBottom: 24, // Space below the image
-    width: '100%',
-    alignItems: 'center', // Center the image if it's not full width
-    overflow: 'hidden', // Ensure image doesn't overflow wrapper
+    marginBottom: 24,
+    width: '100%', // Default for mobile
+    alignItems: 'center', // Default for mobile
+    overflow: 'hidden',
   },
   desktopFirstImageWrapper: {
-    maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH,
-    alignSelf: 'center',
-    paddingHorizontal: 16, // Match content container padding
+    width: DESKTOP_TEXT_CONTENT_WIDTH, // Set wrapper width to match text content
+    alignSelf: 'center', // Center the wrapper within the ScrollView's max width
+    marginLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET, // Indent to match text column
   },
   firstImage: {
-    width: '100%',
+    width: '100%', // Image fills its parent wrapper
     height: 550, // Default height for desktop web
     resizeMode: 'cover',
   },
