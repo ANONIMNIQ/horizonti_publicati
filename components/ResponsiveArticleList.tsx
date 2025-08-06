@@ -47,16 +47,16 @@ export default function ResponsiveArticleList({
     Math.min(INITIAL_DISPLAY_COUNT, articles.length || 0)
   );
   const [isSimulatingLoadMore, setIsSimulatingLoadMore] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false); // New state for button logic
   const flatListRef = useRef<FlatList<ListItem>>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const instanceId = useRef(0); // Ref to track data instance and prevent stale actions
+  const instanceId = useRef(0);
 
   // Effect to reset state when the articles array changes (e.g., due to filtering)
-  // This prevents crashes from pending timeouts on an old dataset.
   useEffect(() => {
-    instanceId.current += 1; // Increment instance ID on data change
+    instanceId.current += 1;
     setVisibleArticleCount(Math.min(INITIAL_DISPLAY_COUNT, articles.length));
-    // If a load was in progress, cancel it
+    setHasLoadedOnce(false); // Reset button state on filter change
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       setIsSimulatingLoadMore(false);
@@ -67,13 +67,13 @@ export default function ResponsiveArticleList({
     if (isSimulatingLoadMore) return;
 
     setIsSimulatingLoadMore(true);
+    setHasLoadedOnce(true); // Mark that load has been attempted
     const firstNewArticleIndex = visibleArticleCount;
-    const currentInstanceId = instanceId.current; // Capture current instance ID
+    const currentInstanceId = instanceId.current;
 
     timeoutRef.current = setTimeout(() => {
-      // Check if the instance is still valid before proceeding
       if (instanceId.current !== currentInstanceId) {
-        setIsSimulatingLoadMore(false); // Ensure loading state is reset
+        setIsSimulatingLoadMore(false);
         return;
       }
 
@@ -82,6 +82,9 @@ export default function ResponsiveArticleList({
       setIsSimulatingLoadMore(false);
       timeoutRef.current = null;
 
+      // Temporarily disabled to prevent crashes while debugging.
+      // We will re-enable this once the logic is confirmed to be stable.
+      /*
       if (flatListRef.current && newVisibleCount > firstNewArticleIndex) {
         const targetIndex = isDesktopWeb
           ? Math.floor(firstNewArticleIndex / NUM_COLUMNS_DESKTOP) * NUM_COLUMNS_DESKTOP
@@ -97,6 +100,7 @@ export default function ResponsiveArticleList({
           });
         }
       }
+      */
     }, 700);
   }, [visibleArticleCount, articles, isSimulatingLoadMore, isDesktopWeb]);
 
@@ -210,9 +214,7 @@ export default function ResponsiveArticleList({
       return null;
     }
 
-    const hasLoadedMoreOnce = visibleArticleCount > INITIAL_DISPLAY_COUNT;
-
-    if (hasLoadedMoreOnce) {
+    if (hasLoadedOnce) {
       // After loading more once, show the "Show All" button
       return (
         <View style={styles.footerButtonsContainer}>
