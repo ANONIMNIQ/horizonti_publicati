@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Article } from '@/types';
 
-const MEDIUM_RSS_FEED_URL = 'https://medium.com/feed/note-book'; // Temporarily changed for testing
+const MEDIUM_RSS_FEED_URL = 'https://medium.com/feed/counterarts'; // Changed to counterarts
 const RSS2JSON_API_URL_BASE = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 export interface Feed {

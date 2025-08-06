@@ -43,7 +43,7 @@ export default function DesktopArticleCard({ article }: { article: Article }) {
           <View style={styles.cardContent}>
             <Text
               style={[styles.cardTitle, { color: Colors[colorScheme].text }]}
-              numberOfLines={5} // Adjusted for smaller card
+              numberOfLines={6} // Adjusted for 6 lines
             >
               {decode(article.title)}
             </Text>
