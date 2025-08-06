@@ -10,12 +10,25 @@ function getYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+// Utility to parse a deezer.com URL (e.g., deezer.com/track/ID) for type and ID
+function parseDeezerUrlForInfo(url: string): { type: string; id: string } | null {
+  if (!url) return null;
+  // Regex to capture track, album, playlist, episode and their IDs
+  const deezerRegex = /deezer\.com\/(?:en\/)?(track|album|playlist|episode)\/(\d+)/i;
+  const match = url.match(deezerRegex);
+  if (match) {
+    return { type: match[1], id: match[2] };
+  }
+  return null;
+}
+
 /**
- * Attempts to get the Deezer embed HTML from various Deezer-related URLs using oEmbed or scraping.
+ * Attempts to get the Deezer embed HTML (iframe) from a given URL.
+ * This function will prioritize constructing the official widget.deezer.com/plugins/player URL.
  */
 async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> {
   try {
-    // Step 1: Resolve the initial URL to its final Deezer page URL
+    // Step 1: Fetch the URL and follow redirects to get the final Deezer page URL
     let response = await fetch(urlToProcess, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -30,26 +43,20 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
 
     const finalDeezerPageUrl = response.url; // This is the URL after all redirects (e.g., deezer.com/en/episode/ID)
 
-    // Step 2: Try Deezer's oEmbed endpoint first
-    const oembedUrl = `https://www.deezer.com/oembed?url=${encodeURIComponent(finalDeezerPageUrl)}&format=json`;
-    try {
-      const oembedResponse = await fetch(oembedUrl);
-      if (oembedResponse.ok) {
-        const oembedData = await oembedResponse.json();
-        if (oembedData && oembedData.html) {
-          // oEmbed provides the full iframe HTML, wrap it in our responsive div
-          return `<div class="deezer-responsive">${oembedData.html}</div>`;
-        }
-      } else {
-        console.warn(`Deezer oEmbed failed for ${finalDeezerPageUrl}: ${oembedResponse.status}`);
-      }
-    } catch (oembedError) {
-      console.warn(`Error fetching Deezer oEmbed for ${finalDeezerPageUrl}:`, oembedError);
+    // Step 2: Try to extract Deezer content type and ID from the final URL
+    const deezerInfo = parseDeezerUrlForInfo(finalDeezerPageUrl);
+    if (deezerInfo) {
+      // Construct the official Deezer widget player URL
+      // The 'app_id' is often required, '1' is a common default for generic embeds.
+      // The 'layout' can be 'dark' or 'light', 'size' can be 'medium' or 'small'.
+      // For a podcast episode, 'type' would be 'episode', 'id' would be the episode ID.
+      const widgetUrl = `https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1`;
+      return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${widgetUrl}"></iframe></div>`;
     }
 
-    // Step 3: Fallback to scraping if oEmbed didn't work or didn't provide HTML
-    // This covers cases where oEmbed might not be available or doesn't return the expected format
-    const htmlContent = await response.text(); // Use the HTML from the final Deezer page
+    // Step 3: Fallback to scraping if direct construction failed (e.g., URL is not a standard Deezer content page)
+    // This might catch cases where the original URL was already an embedly iframe or a direct widget.deezer.com link
+    const htmlContent = await response.text();
     const $$ = load(htmlContent);
 
     // Look for iframes within the fetched HTML
@@ -64,7 +71,7 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
           if (innerSrcParam) {
             const decodedInnerSrc = decodeURIComponent(innerSrcParam);
             // Recursively call getDeezerEmbedHtml on the decoded inner src
-            // This handles cases where embedly points to another Deezer link
+            // This handles cases where embedly points to another Deezer link (which will then be handled by Step 2)
             return await getDeezerEmbedHtml(decodedInnerSrc);
           }
         }
@@ -75,7 +82,7 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
       }
     }
 
-    // Step 4: If no iframe found, or iframe not a Deezer widget, check for script tags with document.write
+    // Step 4: Fallback to looking for document.write in script tags (less common for Deezer)
     const scriptElements = $$('script');
     for (let i = 0; i < scriptElements.length; i++) {
       const scriptContent = $$(scriptElements[i]).html();
