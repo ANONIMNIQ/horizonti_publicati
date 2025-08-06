@@ -363,10 +363,10 @@ const styles = StyleSheet.create({
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
-    height: 500, // Increased height for desktop web
+    height: 500, // Height for desktop web
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 350, // Increased height for mobile/tablet web
+    height: 250, // Reduced height for mobile/tablet web
   },
 });
