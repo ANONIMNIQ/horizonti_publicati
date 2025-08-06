@@ -306,7 +306,7 @@ export default function ArticleScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { paddingTop: 80, paddingBottom: 40 },
+  scrollContainer: { paddingTop: 60, paddingBottom: 40 }, // Changed from 80 to 60
   desktopScrollContainer: { alignSelf: 'center', width: '100%', maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, paddingTop: 0 },
   contentContainer: { paddingHorizontal: 20 },
   desktopContentContainer: { paddingHorizontal: 16 },
