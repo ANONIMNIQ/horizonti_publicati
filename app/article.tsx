@@ -257,7 +257,7 @@ export default function ArticleScreen() {
               source={{ uri: firstImageSrc }}
               style={[
                 styles.firstImage,
-                !isDesktopWeb && styles.mobileWebFirstImage, // Apply mobile-specific height
+                isDesktopWeb ? { height: DESKTOP_FULL_CONTENT_WIDTH * (9 / 16) } : styles.mobileWebFirstImage, // Calculate height for desktop, use fixed for mobile
                 animatedImageStyle,
               ]}
               resizeMode="cover"
@@ -363,10 +363,10 @@ const styles = StyleSheet.create({
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
-    height: 500, // Height for desktop web
+    // Height is now dynamically calculated for desktop
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 250, // Reduced height for mobile/tablet web
+    height: 250, // Fixed height for mobile/tablet web
   },
 });
