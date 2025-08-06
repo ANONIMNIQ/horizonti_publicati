@@ -8,6 +8,7 @@ import {
   StyleProp,
   ViewStyle,
   Pressable,
+  Linking,
 } from 'react-native';
 import { Article } from '@/types';
 import { Colors } from '@/constants/Colors';
@@ -141,6 +142,7 @@ export default function ResponsiveArticleList({
                 return (
                     <View style={[...wrapperStyle, styles.buttonCell]}>
                         <Pressable
+                            onPress={() => Linking.openURL('https://medium.com/horizonti')}
                             style={({ pressed }) => [
                                 styles.allArticlesButton,
                                 {
@@ -237,6 +239,7 @@ export default function ResponsiveArticleList({
       return (
         <View style={styles.footerButtonsContainer}>
           <Pressable
+            onPress={() => Linking.openURL('https://medium.com/horizonti')}
             style={({ pressed }) => [
               styles.allArticlesButton,
               {
