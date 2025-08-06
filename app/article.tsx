@@ -21,7 +21,7 @@ import ArticleHeader from '@/components/ArticleHeader';
 import { Clock, ChevronLeft } from 'lucide-react-native';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { BlurView } from 'expo-blur';
-import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH } from '@/constants/Layout';
+import { DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, DESKTOP_TEXT_CONTENT_WIDTH, DESKTOP_FULL_CONTENT_WIDTH } from '@/constants/Layout';
 import WebHtmlRenderer from '@/components/WebHtmlRenderer';
 import SkeletonHtmlContent from '@/components/SkeletonHtmlContent';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   desktopFirstImageWrapper: {
     alignSelf: 'center', // Center the wrapper within the max width container
-    width: '100%', // Take full width of desktopScrollContainer's content area
+    width: DESKTOP_FULL_CONTENT_WIDTH, // Set to match the content column width
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
