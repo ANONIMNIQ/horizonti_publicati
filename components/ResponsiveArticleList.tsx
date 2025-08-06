@@ -30,7 +30,7 @@ const DESKTOP_GUTTER_HALF = 8;
 const INITIAL_DISPLAY_COUNT = 8;
 const NEXT_LOAD_COUNT = 2;
 
-type ListItem = Article | { id: string; type: 'skeleton'; };
+type ListItem = Article | { id: string; type: 'skeleton' | 'button' | 'placeholder' };
 
 export default function ResponsiveArticleList({
   articles,
@@ -75,56 +75,14 @@ export default function ResponsiveArticleList({
         return;
       }
 
-      const potentialNewCount = visibleArticleCount + NEXT_LOAD_COUNT;
-      // If loading more would finish the list, leave one item behind.
-      // This ensures the "Show All" button will always appear after "Load More" is clicked.
-      const newVisibleCount =
-        potentialNewCount >= articles.length
-          ? Math.max(visibleArticleCount, articles.length - 1)
-          : potentialNewCount;
-
-      // If no new articles would be shown, load all of them instead.
-      if (newVisibleCount === visibleArticleCount && visibleArticleCount < articles.length) {
-        setVisibleArticleCount(articles.length);
-      } else {
-        setVisibleArticleCount(newVisibleCount);
-      }
+      const newVisibleCount = Math.min(visibleArticleCount + NEXT_LOAD_COUNT, articles.length);
+      setVisibleArticleCount(newVisibleCount);
       
       setHasClickedLoadMore(true);
       setIsSimulatingLoadMore(false);
       timeoutRef.current = null;
-
-      // Scrolling is temporarily disabled to prevent crashes.
-      /*
-      if (flatListRef.current && newVisibleCount > firstNewArticleIndex) {
-        const targetIndex = isDesktopWeb
-          ? Math.floor(firstNewArticleIndex / NUM_COLUMNS_DESKTOP) * NUM_COLUMNS_DESKTOP
-          : firstNewArticleIndex;
-        
-        const safeTargetIndex = Math.min(targetIndex, newVisibleCount - 1);
-
-        if (safeTargetIndex >= 0) {
-          flatListRef.current.scrollToIndex({
-            index: safeTargetIndex,
-            animated: true,
-            viewPosition: 0.5,
-          });
-        }
-      }
-      */
     }, 700);
-  }, [visibleArticleCount, articles, isSimulatingLoadMore, isDesktopWeb]);
-
-  const showAllArticles = useCallback(() => {
-    if (visibleArticleCount < articles.length) {
-      setVisibleArticleCount(articles.length);
-      setTimeout(() => {
-        if (flatListRef.current) {
-          flatListRef.current.scrollToEnd({ animated: true });
-        }
-      }, 100);
-    }
-  }, [articles.length, visibleArticleCount]);
+  }, [visibleArticleCount, articles, isSimulatingLoadMore]);
 
   const listData: ListItem[] = useMemo(() => {
     if (!articles || articles.length === 0) return [];
@@ -134,42 +92,87 @@ export default function ResponsiveArticleList({
     if (isSimulatingLoadMore) {
       const skeletonsToAdd = Array.from({ length: NEXT_LOAD_COUNT }).map((_, i) => ({
         id: `skeleton-${visibleArticleCount + i}`,
-        type: 'skeleton',
+        type: 'skeleton' as const,
       }));
-      currentData = [...currentData, ...skeletonsToAdd];
+      return [...currentData, ...skeletonsToAdd];
     }
+
+    const allArticlesLoaded = visibleArticleCount >= articles.length;
+
+    // Desktop-specific logic to inject the button into the grid
+    if (isDesktopWeb && hasClickedLoadMore && allArticlesLoaded) {
+        const itemsInLastRow = currentData.length % numColumns;
+        if (itemsInLastRow !== 0) {
+            const placeholdersToFillRow = numColumns - itemsInLastRow;
+            for (let i = 0; i < placeholdersToFillRow; i++) {
+                // Add the button in the last available slot
+                if (i === placeholdersToFillRow - 1) {
+                    currentData.push({ id: 'button-placeholder', type: 'button' });
+                } else {
+                    currentData.push({ id: `empty-placeholder-${i}`, type: 'placeholder' });
+                }
+            }
+        }
+    }
+
     return currentData;
-  }, [articles, visibleArticleCount, isSimulatingLoadMore]);
+  }, [articles, visibleArticleCount, isSimulatingLoadMore, isDesktopWeb, hasClickedLoadMore]);
 
   const renderItem = ({ item, index }: { item: ListItem; index: number }) => {
     if ('type' in item && item.type === 'skeleton') {
       return renderSkeleton({ index });
-    } else {
-      if (isDesktopWeb) {
-        const needsLeftBorder = (index % NUM_COLUMNS_DESKTOP !== 0);
+    }
+
+    if (isDesktopWeb) {
+        const needsLeftBorder = (index % numColumns !== 0);
         const paddingLeft = needsLeftBorder ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF;
-        return (
-          <View
-            style={[
-              styles.desktopCardWrapper,
-              {
-                flexBasis: `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`,
+        const wrapperStyle = [
+            styles.desktopCardWrapper,
+            {
+                flexBasis: `${(1 / numColumns) * 100}%`,
                 borderLeftWidth: needsLeftBorder ? 1 : 0,
                 borderColor: Colors[colorScheme].cardBorder,
                 paddingLeft: paddingLeft,
-              },
-            ]}
-          >
-            <DesktopArticleCard article={item as Article} />
-          </View>
-        );
-      } else {
+            },
+        ];
+
+        if ('type' in item) {
+            if (item.type === 'button') {
+                return (
+                    <View style={[...wrapperStyle, styles.buttonCell]}>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.allArticlesButton,
+                                {
+                                    backgroundColor: pressed
+                                        ? Colors[colorScheme].commentsButtonBackgroundPressed
+                                        : Colors[colorScheme].commentsButtonBackground,
+                                },
+                            ]}
+                        >
+                            <Text style={[styles.allArticlesButtonText, { color: Colors[colorScheme].commentsButtonText }]}>
+                                ВСИЧКИ ПУБЛИКАЦИИ
+                            </Text>
+                        </Pressable>
+                    </View>
+                );
+            }
+            if (item.type === 'placeholder') {
+                return <View style={wrapperStyle} />;
+            }
+        }
+
         return (
-          <View style={styles.mobileCardWrapper}>
-            <ArticleCard article={item as Article} />
-          </View>
+            <View style={wrapperStyle}>
+                <DesktopArticleCard article={item as Article} />
+            </View>
         );
-      }
+    } else { // Mobile logic
+        return (
+            <View style={styles.mobileCardWrapper}>
+                <ArticleCard article={item as Article} />
+            </View>
+        );
     }
   };
 
@@ -180,11 +183,11 @@ export default function ResponsiveArticleList({
           style={[
             styles.desktopCardWrapper,
             {
-              flexBasis: `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`,
-              borderLeftWidth: index % NUM_COLUMNS_DESKTOP !== 0 ? 1 : 0,
+              flexBasis: `${(1 / numColumns) * 100}%`,
+              borderLeftWidth: index % numColumns !== 0 ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
               paddingLeft:
-                index % NUM_COLUMNS_DESKTOP !== 0
+                index % numColumns !== 0
                   ? DESKTOP_GUTTER_HALF * 2
                   : DESKTOP_GUTTER_HALF,
             },
@@ -222,63 +225,40 @@ export default function ResponsiveArticleList({
 
     const allArticlesLoaded = visibleArticleCount >= articles.length;
 
+    // On desktop, the button is rendered in the grid, so the footer is only for the initial "Load More" button.
+    if (isDesktopWeb && hasClickedLoadMore) {
+      return null;
+    }
+
     if (allArticlesLoaded) {
       return null;
     }
 
-    if (hasClickedLoadMore) {
-      // After "Load More" is clicked, show "Show All"
-      return (
-        <View style={styles.footerButtonsContainer}>
-          <Pressable
-            onPress={showAllArticles}
-            style={({ pressed }) => [
-              styles.allArticlesButton,
-              {
-                backgroundColor: pressed
-                  ? Colors[colorScheme].commentsButtonBackgroundPressed
-                  : Colors[colorScheme].commentsButtonBackground,
-              },
+    // This logic now primarily affects mobile, and the initial state of desktop.
+    return (
+      <View style={styles.footerButtonsContainer}>
+        <Pressable
+          onPress={loadMoreArticles}
+          style={({ pressed }) => [
+            styles.loadMoreButton,
+            {
+              backgroundColor: pressed
+                ? Colors[colorScheme].commentsButtonBackgroundPressed
+                : Colors[colorScheme].commentsButtonBackground,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.loadMoreButtonText,
+              { color: Colors[colorScheme].commentsButtonText },
             ]}
           >
-            <Text
-              style={[
-                styles.allArticlesButtonText,
-                { color: Colors[colorScheme].commentsButtonText },
-              ]}
-            >
-              ВСИЧКИ ПУБЛИКАЦИИ
-            </Text>
-          </Pressable>
-        </View>
-      );
-    } else {
-      // Initially, show the "Load More" button
-      return (
-        <View style={styles.footerButtonsContainer}>
-          <Pressable
-            onPress={loadMoreArticles}
-            style={({ pressed }) => [
-              styles.loadMoreButton,
-              {
-                backgroundColor: pressed
-                  ? Colors[colorScheme].commentsButtonBackgroundPressed
-                  : Colors[colorScheme].commentsButtonBackground,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.loadMoreButtonText,
-                { color: Colors[colorScheme].commentsButtonText },
-              ]}
-            >
-              ОЩЕ ПУБЛИКАЦИИ
-            </Text>
-          </Pressable>
-        </View>
-      );
-    }
+            ОЩЕ ПУБЛИКАЦИИ
+          </Text>
+        </Pressable>
+      </View>
+    );
   };
 
   const getListProps = () => {
@@ -293,7 +273,7 @@ export default function ResponsiveArticleList({
     if (isDesktopWeb) {
       return {
         ...baseProps,
-        numColumns: NUM_COLUMNS_DESKTOP,
+        numColumns: numColumns,
         columnWrapperStyle: styles.desktopColumnWrapper,
         contentContainerStyle: [styles.desktopArticleList, ...baseProps.contentContainerStyle],
       };
@@ -347,7 +327,6 @@ export default function ResponsiveArticleList({
       keyExtractor={(item) => ('guid' in item ? item.guid : item.id)}
       showsVerticalScrollIndicator={false}
       onScrollToIndexFailed={(info) => {
-        // As a fallback, scroll to the end if the index is out of view
         flatListRef.current?.scrollToEnd({ animated: true });
       }}
       {...getListProps()}
@@ -371,6 +350,10 @@ const styles = StyleSheet.create({
   },
   desktopCardWrapper: {
     paddingHorizontal: DESKTOP_GUTTER_HALF,
+  },
+  buttonCell: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   desktopRowSeparator: {
     height: 1,
