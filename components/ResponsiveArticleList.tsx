@@ -49,10 +49,12 @@ export default function ResponsiveArticleList({
   const [isSimulatingLoadMore, setIsSimulatingLoadMore] = useState(false);
   const flatListRef = useRef<FlatList<ListItem>>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const instanceId = useRef(0); // Ref to track data instance and prevent stale actions
 
   // Effect to reset state when the articles array changes (e.g., due to filtering)
   // This prevents crashes from pending timeouts on an old dataset.
   useEffect(() => {
+    instanceId.current += 1; // Increment instance ID on data change
     setVisibleArticleCount(Math.min(INITIAL_DISPLAY_COUNT, articles.length));
     // If a load was in progress, cancel it
     if (timeoutRef.current) {
@@ -66,8 +68,15 @@ export default function ResponsiveArticleList({
 
     setIsSimulatingLoadMore(true);
     const firstNewArticleIndex = visibleArticleCount;
+    const currentInstanceId = instanceId.current; // Capture current instance ID
 
     timeoutRef.current = setTimeout(() => {
+      // Check if the instance is still valid before proceeding
+      if (instanceId.current !== currentInstanceId) {
+        setIsSimulatingLoadMore(false); // Ensure loading state is reset
+        return;
+      }
+
       const newVisibleCount = Math.min(visibleArticleCount + NEXT_LOAD_COUNT, articles.length);
       setVisibleArticleCount(newVisibleCount);
       setIsSimulatingLoadMore(false);
@@ -78,7 +87,6 @@ export default function ResponsiveArticleList({
           ? Math.floor(firstNewArticleIndex / NUM_COLUMNS_DESKTOP) * NUM_COLUMNS_DESKTOP
           : firstNewArticleIndex;
         
-        // Ensure target index is valid for the *new* list size
         const safeTargetIndex = Math.min(targetIndex, newVisibleCount - 1);
 
         if (safeTargetIndex >= 0) {
