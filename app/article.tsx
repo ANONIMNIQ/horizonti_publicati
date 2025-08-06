@@ -45,7 +45,7 @@ export default function ArticleScreen() {
   const [processedHtml, setProcessedHtml] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
-  const [firstImageCalculatedHeight, setFirstImageCalculatedHeight] = useState<number | null>(null);
+  // Removed firstImageCalculatedHeight state
   const hasTwitterScriptLoaded = useRef(false);
 
   // Shared value for image opacity animation
@@ -82,23 +82,7 @@ export default function ArticleScreen() {
     }
     setFirstImageSrc(extractedFirstImageSrc);
 
-    // Calculate image height dynamically for web
-    if (extractedFirstImageSrc && Platform.OS === 'web') {
-      Image.getSize(extractedFirstImageSrc, (originalWidth, originalHeight) => {
-        const availableWidth = isDesktopWeb
-          ? DESKTOP_CONTENT_MAX_CONTAINER_WIDTH - 16 * 2 // desktopScrollContainer padding
-          : width - 20 * 2; // contentContainer padding
-
-        const calculatedHeight = (availableWidth / originalWidth) * originalHeight;
-        setFirstImageCalculatedHeight(calculatedHeight);
-      }, (error) => {
-        console.error("Couldn't get image size", error);
-        setFirstImageCalculatedHeight(isDesktopWeb ? 550 : 250); // Fallback to default fixed height
-      });
-    } else if (Platform.OS !== 'web') {
-      // For native, we can keep a default height or handle it differently if needed
-      setFirstImageCalculatedHeight(isDesktopWeb ? 550 : 250); // Fallback for native
-    }
+    // Removed dynamic height calculation for image
 
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
@@ -183,7 +167,7 @@ export default function ArticleScreen() {
       setProcessedHtml(tempHtml);
       setIsLoadingContent(false);
     }
-  }, [article, isDesktopWeb, width]); // Added isDesktopWeb and width to dependencies
+  }, [article]); // Removed isDesktopWeb and width from dependencies as they are no longer needed for image height
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -276,7 +260,7 @@ export default function ArticleScreen() {
               source={{ uri: firstImageSrc }}
               style={[
                 styles.firstImage,
-                { height: firstImageCalculatedHeight || (isDesktopWeb ? 550 : 250) }, // Use calculated height or fallback
+                !isDesktopWeb && styles.mobileWebFirstImage, // Apply mobile-specific height
                 animatedImageStyle,
               ]}
               resizeMode="cover"
@@ -377,16 +361,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   desktopFirstImageWrapper: {
-    // Removed paddingHorizontal: 16; it's handled by desktopScrollContainer
     alignSelf: 'center', // Center the wrapper within the max width container
     width: '100%', // Take full width of desktopScrollContainer's content area
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
-    // height will be set dynamically based on aspect ratio
+    height: 400, // Fixed height for desktop web
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 250, // Fallback height for mobile/tablet web if dynamic calculation fails
+    height: 250, // Fixed height for mobile/tablet web
   },
 });
