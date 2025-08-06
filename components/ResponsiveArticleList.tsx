@@ -226,39 +226,64 @@ export default function ResponsiveArticleList({
     const allArticlesLoaded = visibleArticleCount >= articles.length;
 
     // On desktop, the button is rendered in the grid, so the footer is only for the initial "Load More" button.
-    if (isDesktopWeb && hasClickedLoadMore) {
-      return null;
+    if (isDesktopWeb) {
+      if (hasClickedLoadMore || allArticlesLoaded) {
+        return null;
+      }
     }
 
-    if (allArticlesLoaded) {
-      return null;
-    }
-
-    // This logic now primarily affects mobile, and the initial state of desktop.
-    return (
-      <View style={styles.footerButtonsContainer}>
-        <Pressable
-          onPress={loadMoreArticles}
-          style={({ pressed }) => [
-            styles.loadMoreButton,
-            {
-              backgroundColor: pressed
-                ? Colors[colorScheme].commentsButtonBackgroundPressed
-                : Colors[colorScheme].commentsButtonBackground,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.loadMoreButtonText,
-              { color: Colors[colorScheme].commentsButtonText },
+    // On mobile, show "Show All" button when all articles are loaded.
+    if (!isDesktopWeb && allArticlesLoaded) {
+      return (
+        <View style={styles.footerButtonsContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.allArticlesButton,
+              {
+                backgroundColor: pressed
+                  ? Colors[colorScheme].commentsButtonBackgroundPressed
+                  : Colors[colorScheme].commentsButtonBackground,
+              },
             ]}
           >
-            ОЩЕ ПУБЛИКАЦИИ
-          </Text>
-        </Pressable>
-      </View>
-    );
+            <Text style={[styles.allArticlesButtonText, { color: Colors[colorScheme].commentsButtonText }]}>
+              ВСИЧКИ ПУБЛИКАЦИИ
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    // Show "Load More" button if there are more articles to load.
+    // This applies to mobile and the initial state of desktop.
+    if (!allArticlesLoaded) {
+      return (
+        <View style={styles.footerButtonsContainer}>
+          <Pressable
+            onPress={loadMoreArticles}
+            style={({ pressed }) => [
+              styles.loadMoreButton,
+              {
+                backgroundColor: pressed
+                  ? Colors[colorScheme].commentsButtonBackgroundPressed
+                  : Colors[colorScheme].commentsButtonBackground,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.loadMoreButtonText,
+                { color: Colors[colorScheme].commentsButtonText },
+              ]}
+            >
+              ОЩЕ ПУБЛИКАЦИИ
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   const getListProps = () => {
