@@ -353,14 +353,16 @@ const styles = StyleSheet.create({
   // New styles for the first image
   firstImageWrapper: {
     marginBottom: 24,
-    width: '100%', // Default for mobile
-    alignItems: 'center', // Default for mobile
+    width: '100%', // Default for mobile (takes 100% of parent's width)
+    alignItems: 'center', // Default for mobile (centers content if narrower)
     overflow: 'hidden',
   },
   desktopFirstImageWrapper: {
-    width: DESKTOP_TEXT_CONTENT_WIDTH, // Set wrapper width to match text content
-    alignSelf: 'center', // Center the wrapper within the ScrollView's max width
-    marginLeft: DESKTOP_TEXT_COLUMN_LEFT_OFFSET, // Indent to match text column
+    // On desktop, this wrapper should take the full width of the DESKTOP_CONTENT_MAX_CONTAINER_WIDTH
+    // and apply horizontal padding to match the rest of the content.
+    // The `width: '100%'` from `firstImageWrapper` will now refer to the `desktopScrollContainer`'s max width.
+    paddingHorizontal: 16, // Add padding to match the desktopContentContainer
+    // Remove `width` and `marginLeft` as they were making it narrower.
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
