@@ -1,7 +1,7 @@
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#F5F7FA',
+    background: '#FFFFFF', // Changed to pure white
     tint: '#6366F1',
     icon: '#687076',
     tabIconDefault: '#687076',
