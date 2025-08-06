@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,17 +21,16 @@ interface ResponsiveArticleListProps {
   articles: Article[];
   loading: boolean;
   error: Error | null;
-  contentTopPadding?: number; // New prop for top padding
+  contentTopPadding?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
 const NUM_COLUMNS_DESKTOP = 4;
 const DESKTOP_GUTTER_HALF = 8;
-const INITIAL_DISPLAY_COUNT = 8; // Show first 8 articles
-const NEXT_LOAD_COUNT = 2; // Load 2 more articles to reach 10
+const INITIAL_DISPLAY_COUNT = 8;
+const NEXT_LOAD_COUNT = 2;
 
-// Define a type for items in the FlatList, including a special button item
-type ListItem = Article | { id: string; type: 'allArticlesButton'; span: number; };
+type ListItem = Article | { id: string; type: 'allArticlesButton'; span: number; } | { id: string; type: 'skeleton'; };
 
 export default function ResponsiveArticleList({
   articles,
@@ -45,80 +44,126 @@ export default function ResponsiveArticleList({
   const numColumns = isDesktopWeb ? NUM_COLUMNS_DESKTOP : 1;
 
   const [visibleArticleCount, setVisibleArticleCount] = useState(INITIAL_DISPLAY_COUNT);
+  const [isSimulatingLoadMore, setIsSimulatingLoadMore] = useState(false);
+  const flatListRef = useRef<FlatList<ListItem>>(null);
 
   const loadMoreArticles = useCallback(() => {
-    // Load the next batch of articles (up to 10 total for Medium RSS)
-    setVisibleArticleCount(INITIAL_DISPLAY_COUNT + NEXT_LOAD_COUNT);
-  }, []);
+    if (isSimulatingLoadMore) return;
+
+    setIsSimulatingLoadMore(true);
+
+    const firstNewArticleIndex = visibleArticleCount;
+
+    setTimeout(() => {
+      const newVisibleCount = visibleArticleCount + NEXT_LOAD_COUNT;
+      setVisibleArticleCount(newVisibleCount);
+      setIsSimulatingLoadMore(false);
+
+      if (flatListRef.current) {
+        const targetIndex = isDesktopWeb
+          ? Math.floor(firstNewArticleIndex / NUM_COLUMNS_DESKTOP) * NUM_COLUMNS_DESKTOP
+          : firstNewArticleIndex;
+
+        const safeTargetIndex = Math.min(targetIndex, articles.length - 1);
+
+        if (safeTargetIndex >= 0) {
+          flatListRef.current.scrollToIndex({
+            index: safeTargetIndex,
+            animated: true,
+            viewPosition: 0.5,
+          });
+        }
+      }
+    }, 700);
+  }, [visibleArticleCount, articles, isSimulatingLoadMore, isDesktopWeb]);
 
   const listData: ListItem[] = useMemo(() => {
     if (!articles || articles.length === 0) return [];
 
-    const sliced = articles.slice(0, visibleArticleCount);
+    let currentData = articles.slice(0, visibleArticleCount);
 
-    // If all articles are loaded (visibleArticleCount equals total articles)
-    // and we are on desktop web, and there were more than the initial 8 (i.e., we have 10 articles total)
-    if (isDesktopWeb && visibleArticleCount === articles.length && articles.length > INITIAL_DISPLAY_COUNT) {
-      // Append the special button item. It will take up 2 columns.
-      return [...sliced, { id: 'all-articles-button', type: 'allArticlesButton', span: 2 }];
+    if (isSimulatingLoadMore) {
+      const skeletonsToAdd = Array.from({ length: NEXT_LOAD_COUNT }).map((_, i) => ({
+        id: `skeleton-${visibleArticleCount + i}`,
+        type: 'skeleton',
+      }));
+      currentData = [...currentData, ...skeletonsToAdd];
     }
-    return sliced;
-  }, [articles, visibleArticleCount, isDesktopWeb]);
+
+    if (isDesktopWeb && visibleArticleCount === articles.length && articles.length > INITIAL_DISPLAY_COUNT) {
+      return [...currentData, { id: 'all-articles-button', type: 'allArticlesButton', span: 2 }];
+    }
+    return currentData;
+  }, [articles, visibleArticleCount, isSimulatingLoadMore, isDesktopWeb]);
 
   const renderItem = ({ item, index }: { item: ListItem; index: number }) => {
-    const isButton = 'type' in item && item.type === 'allArticlesButton';
-
-    if (isDesktopWeb) {
-      const itemFlexBasis = isButton ? '50%' : `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`; // Button takes 2 columns, articles take 1
-      const needsLeftBorder = (index % NUM_COLUMNS_DESKTOP !== 0);
-      const paddingLeft = needsLeftBorder ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF;
-      const cardEffectiveHeight = 380; // Height of a DesktopArticleCard is effectively 220 (content) + 160 (image) = 380
-
+    if ('type' in item && item.type === 'allArticlesButton') {
+      const cardEffectiveHeight = 380;
       return (
         <View
           style={[
             styles.desktopCardWrapper,
             {
-              flexBasis: itemFlexBasis,
-              borderLeftWidth: needsLeftBorder ? 1 : 0,
+              flexBasis: '50%',
+              borderLeftWidth: (index % NUM_COLUMNS_DESKTOP !== 0) ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
-              paddingLeft: paddingLeft,
+              paddingLeft: (index % NUM_COLUMNS_DESKTOP !== 0) ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF,
+              height: cardEffectiveHeight,
+              justifyContent: 'center',
+              alignItems: 'center'
             },
-            isButton && { height: cardEffectiveHeight, justifyContent: 'center', alignItems: 'center' }, // Center button vertically and horizontally
           ]}
         >
-          {isButton ? (
-            <Pressable
-              onPress={() => { /* TODO: Implement what this button does */ }}
-              style={({ pressed }) => [
-                styles.allArticlesButton,
-                {
-                  backgroundColor: pressed
-                    ? Colors[colorScheme].commentsButtonBackgroundPressed
-                    : Colors[colorScheme].commentsButtonBackground,
-                },
+          <Pressable
+            onPress={() => { /* TODO: Implement what this button does */ }}
+            style={({ pressed }) => [
+              styles.allArticlesButton,
+              {
+                backgroundColor: pressed
+                  ? Colors[colorScheme].commentsButtonBackgroundPressed
+                  : Colors[colorScheme].commentsButtonBackground,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.allArticlesButtonText,
+                { color: Colors[colorScheme].commentsButtonText },
               ]}
             >
-              <Text
-                style={[
-                  styles.allArticlesButtonText,
-                  { color: Colors[colorScheme].commentsButtonText },
-                ]}
-              >
-                ВСИЧКИ ПУБЛИКАЦИИ
-              </Text>
-            </Pressable>
-          ) : (
+              ВСИЧКИ ПУБЛИКАЦИИ
+            </Text>
+          </Pressable>
+        </View>
+      );
+    } else if ('type' in item && item.type === 'skeleton') {
+      return renderSkeleton({ index });
+    } else {
+      if (isDesktopWeb) {
+        const needsLeftBorder = (index % NUM_COLUMNS_DESKTOP !== 0);
+        const paddingLeft = needsLeftBorder ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF;
+        return (
+          <View
+            style={[
+              styles.desktopCardWrapper,
+              {
+                flexBasis: `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`,
+                borderLeftWidth: needsLeftBorder ? 1 : 0,
+                borderColor: Colors[colorScheme].cardBorder,
+                paddingLeft: paddingLeft,
+              },
+            ]}
+          >
             <DesktopArticleCard article={item as Article} />
-          )}
-        </View>
-      );
-    } else { // Mobile/Tablet
-      return (
-        <View style={styles.mobileCardWrapper}>
-          <ArticleCard article={item as Article} />
-        </View>
-      );
+          </View>
+        );
+      } else {
+        return (
+          <View style={styles.mobileCardWrapper}>
+            <ArticleCard article={item as Article} />
+          </View>
+        );
+      }
     }
   };
 
@@ -129,7 +174,7 @@ export default function ResponsiveArticleList({
           style={[
             styles.desktopCardWrapper,
             {
-              flexBasis: `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`, // Skeletons always take 1 column
+              flexBasis: `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`,
               borderLeftWidth: index % NUM_COLUMNS_DESKTOP !== 0 ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
               paddingLeft:
@@ -165,15 +210,14 @@ export default function ResponsiveArticleList({
   };
 
   const renderFooter = () => {
-    if (!isDesktopWeb || loading || error || articles.length === 0) {
+    if (loading || error || articles.length === 0) {
       return null;
     }
 
     const allArticlesLoaded = visibleArticleCount >= articles.length;
     const hasMoreThanInitial = articles.length > INITIAL_DISPLAY_COUNT;
 
-    if (!allArticlesLoaded && hasMoreThanInitial) {
-      // Show "ОЩЕ ПУБЛИКАЦИИ" if not all articles are loaded yet, and there are more than the initial 8
+    if (!allArticlesLoaded && hasMoreThanInitial && !isSimulatingLoadMore) {
       return (
         <View style={styles.loadMoreButtonContainer}>
           <Pressable
@@ -199,7 +243,7 @@ export default function ResponsiveArticleList({
         </View>
       );
     }
-    return null; // No footer needed if all articles are loaded (button is in grid) or no more articles
+    return null;
   };
 
   const getListProps = () => {
@@ -213,7 +257,7 @@ export default function ResponsiveArticleList({
           { paddingTop: contentTopPadding },
           contentContainerStyle,
         ],
-        ListFooterComponent: renderFooter, // Only for "ОЩЕ ПУБЛИКАЦИИ"
+        ListFooterComponent: renderFooter,
       };
     }
     return {
@@ -231,9 +275,9 @@ export default function ResponsiveArticleList({
     return (
       <FlatList
         key={`skeleton-${numColumns}`}
-        data={Array.from({ length: isDesktopWeb ? INITIAL_DISPLAY_COUNT : 5 })} // Show enough skeletons for initial load
+        data={Array.from({ length: isDesktopWeb ? INITIAL_DISPLAY_COUNT : 5 })}
         renderItem={renderSkeleton}
-        keyExtractor={(_, index) => `skeleton-${index}`}
+        keyExtractor={(_, index) => `skeleton-initial-${index}`}
         showsVerticalScrollIndicator={false}
         {...getListProps()}
       />
@@ -260,11 +304,12 @@ export default function ResponsiveArticleList({
 
   return (
     <FlatList
-      key={`${numColumns}-${articles.length}-${visibleArticleCount}`}
-      extraData={listData} // Use listData which includes the button placeholder
+      ref={flatListRef}
+      key={`${numColumns}-${articles.length}-${visibleArticleCount}-${isSimulatingLoadMore}`}
+      extraData={listData}
       data={listData}
       renderItem={renderItem}
-      keyExtractor={(item) => ('guid' in item ? item.guid : item.id)} // Handle both Article and button item keys
+      keyExtractor={(item) => ('guid' in item ? item.guid : item.id)}
       showsVerticalScrollIndicator={false}
       {...getListProps()}
     />
@@ -286,7 +331,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -DESKTOP_GUTTER_HALF,
   },
   desktopCardWrapper: {
-    // flexBasis is now dynamic in renderItem
     paddingHorizontal: DESKTOP_GUTTER_HALF,
   },
   desktopRowSeparator: {
