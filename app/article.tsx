@@ -203,7 +203,7 @@ export default function ArticleScreen() {
         <View style={[styles.contentContainer, isDesktopWeb && styles.desktopContentContainer]}>
           <View style={[styles.titleAndMetaWrapper, isDesktopWeb && styles.desktopTitleAndMetaWrapper]}>
             <Text style={[styles.title, isDesktopWeb && styles.desktopTitle, { color: Colors[colorScheme].text }]}>{decode(article.title)}</Text>
-            <View style={[styles.metaSeparator, { backgroundColor: Colors[colorScheme].cardBorder }]} />
+            <View style={[styles.metaSeparator, isDesktopWeb && styles.desktopMetaSeparator, { backgroundColor: Colors[colorScheme].cardBorder }]} />
             {isDesktopWeb ? (
               <View style={styles.desktopMetaDataContainer}>
                 <View style={styles.desktopCategorySection}>
@@ -313,12 +313,22 @@ const styles = StyleSheet.create({
   desktopContentContainer: { paddingHorizontal: 16 },
   titleAndMetaWrapper: {},
   desktopTitleAndMetaWrapper: { alignSelf: 'center', width: '100%' },
-  title: { fontSize: 20, fontWeight: '500', marginBottom: 12, lineHeight: 28 },
-  desktopTitle: { fontSize: 40, fontWeight: '500', lineHeight: 48, marginBottom: 16 },
+  title: {
+    fontSize: 20,
+    fontWeight: '500',
+    marginBottom: 8, // Reduced for mobile
+    lineHeight: 28,
+  },
+  desktopTitle: {
+    fontSize: 40,
+    fontWeight: '500',
+    lineHeight: 48,
+    marginBottom: 16, // Desktop specific margin
+  },
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
   loadingOverlay: { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.1)' },
-  articleMetaSection: { marginBottom: 24 },
+  articleMetaSection: { marginBottom: 24 }, // This is the wrapper for mobile metadata
   articleFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   categoryAuthorSection: { flexDirection: 'row', alignItems: 'center' },
   categoryInitialCircle: { width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
@@ -329,7 +339,14 @@ const styles = StyleSheet.create({
   dateSection: { flexDirection: 'row', alignItems: 'center' },
   clockIcon: { marginRight: 4 },
   dateText: { fontSize: 13, fontWeight: '400' },
-  metaSeparator: { height: 2, width: '100%', marginBottom: 24 },
+  metaSeparator: {
+    height: 2,
+    width: '100%',
+    marginBottom: 16, // Reduced for mobile
+  },
+  desktopMetaSeparator: {
+    marginBottom: 24, // Revert to original for desktop
+  },
   articleBodyWrapper: {},
   desktopArticleBodyWrapper: { width: '100%', alignItems: 'flex-start' },
   commentsButtonWrapper: { marginTop: 24, marginBottom: 40, alignItems: 'center' },
@@ -351,23 +368,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 8,
   },
-  // New styles for the first image
   firstImageWrapper: {
     marginBottom: 24,
-    width: '100%', // Default for mobile (takes 100% of parent's width)
-    alignItems: 'center', // Default for mobile (centers content if narrower)
+    width: '100%',
+    alignItems: 'center',
     overflow: 'hidden',
   },
   desktopFirstImageWrapper: {
-    alignSelf: 'center', // Center the wrapper within the max width container
-    width: DESKTOP_FULL_CONTENT_WIDTH, // Set to match the content column width
+    alignSelf: 'center',
+    width: DESKTOP_FULL_CONTENT_WIDTH,
   },
   firstImage: {
-    width: '100%', // Image fills its parent wrapper
-    // Height is now dynamically calculated for desktop
+    width: '100%',
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 250, // Fixed height for mobile/tablet web
+    height: 250,
   },
 });
