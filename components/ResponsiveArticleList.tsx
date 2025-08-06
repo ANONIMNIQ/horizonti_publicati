@@ -25,25 +25,27 @@ interface ResponsiveArticleListProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
 }
 
-const NUM_COLUMNS_DESKTOP = 4; // Changed from 3 to 4
-const DESKTOP_GUTTER_HALF = 8; // Half of the desired 16px gutter
-const ARTICLES_PER_LOAD = NUM_COLUMNS_DESKTOP * 4; // Load 4 rows at a time (4 columns * 4 rows = 16 articles)
+const NUM_COLUMNS_DESKTOP = 4;
+const DESKTOP_GUTTER_HALF = 8;
+const INITIAL_DISPLAY_COUNT = 8; // Show first 8 articles
+const NEXT_LOAD_COUNT = 2; // Load 2 more articles to reach 10
 
 export default function ResponsiveArticleList({
   articles,
   loading,
   error,
-  contentTopPadding = 0, // Default to 0
+  contentTopPadding = 0,
   contentContainerStyle,
 }: ResponsiveArticleListProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const { isDesktopWeb } = useResponsiveLayout();
   const numColumns = isDesktopWeb ? NUM_COLUMNS_DESKTOP : 1;
 
-  const [visibleArticleCount, setVisibleArticleCount] = useState(ARTICLES_PER_LOAD);
+  const [visibleArticleCount, setVisibleArticleCount] = useState(INITIAL_DISPLAY_COUNT);
 
   const loadMoreArticles = useCallback(() => {
-    setVisibleArticleCount((prevCount) => prevCount + ARTICLES_PER_LOAD);
+    // Load the next batch of articles (up to 10 total for Medium RSS)
+    setVisibleArticleCount(INITIAL_DISPLAY_COUNT + NEXT_LOAD_COUNT);
   }, []);
 
   const renderArticle = ({ item, index }: { item: Article; index: number }) => {
@@ -53,10 +55,8 @@ export default function ResponsiveArticleList({
           style={[
             styles.desktopCardWrapper,
             {
-              // The border is now inside the padded area, so it won't add to the width
               borderLeftWidth: index % NUM_COLUMNS_DESKTOP !== 0 ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
-              // Add left padding for the border width to keep content aligned
               paddingLeft:
                 index % NUM_COLUMNS_DESKTOP !== 0
                   ? DESKTOP_GUTTER_HALF * 2
@@ -117,13 +117,15 @@ export default function ResponsiveArticleList({
   };
 
   const renderFooter = () => {
-    if (loading || error || articles.length === 0) {
+    if (!isDesktopWeb || loading || error || articles.length === 0) {
       return null;
     }
 
-    const hasMoreArticles = visibleArticleCount < articles.length;
+    const allArticlesLoaded = visibleArticleCount >= articles.length;
+    const hasMoreThanInitial = articles.length > INITIAL_DISPLAY_COUNT;
 
-    if (isDesktopWeb && hasMoreArticles) {
+    if (!allArticlesLoaded && hasMoreThanInitial) {
+      // Show "ОЩЕ ПУБЛИКАЦИИ" if not all articles are loaded yet, and there are more than the initial 8
       return (
         <View style={styles.loadMoreButtonContainer}>
           <Pressable
@@ -144,6 +146,32 @@ export default function ResponsiveArticleList({
               ]}
             >
               ОЩЕ ПУБЛИКАЦИИ
+            </Text>
+          </Pressable>
+        </View>
+      );
+    } else if (allArticlesLoaded && hasMoreThanInitial) {
+      // Show "ВСИЧКИ ПУБЛИКАЦИИ" if all articles are loaded and there were more than the initial 8
+      return (
+        <View style={styles.allArticlesButtonWrapper}>
+          <Pressable
+            onPress={() => { /* TODO: Implement what this button does */ }}
+            style={({ pressed }) => [
+              styles.allArticlesButton,
+              {
+                backgroundColor: pressed
+                  ? Colors[colorScheme].commentsButtonBackgroundPressed
+                  : Colors[colorScheme].commentsButtonBackground,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.allArticlesButtonText,
+                { color: Colors[colorScheme].commentsButtonText },
+              ]}
+            >
+              ВСИЧКИ ПУБЛИКАЦИИ
             </Text>
           </Pressable>
         </View>
@@ -181,7 +209,7 @@ export default function ResponsiveArticleList({
     return (
       <FlatList
         key={`skeleton-${numColumns}`}
-        data={Array.from({ length: isDesktopWeb ? ARTICLES_PER_LOAD : 5 })} // Show enough skeletons for initial load
+        data={Array.from({ length: isDesktopWeb ? INITIAL_DISPLAY_COUNT : 5 })} // Show enough skeletons for initial load
         renderItem={renderSkeleton}
         keyExtractor={(_, index) => `skeleton-${index}`}
         showsVerticalScrollIndicator={false}
@@ -210,11 +238,9 @@ export default function ResponsiveArticleList({
 
   return (
     <FlatList
-      // By changing the key when the number of articles changes, we force a full re-render,
-      // which fixes the column width bug on filtering.
-      key={`${numColumns}-${articles.length}-${visibleArticleCount}`} // Add visibleArticleCount to key
+      key={`${numColumns}-${articles.length}-${visibleArticleCount}`}
       extraData={articles}
-      data={articles.slice(0, visibleArticleCount)} // Slice data based on visible count
+      data={articles.slice(0, visibleArticleCount)}
       renderItem={renderArticle}
       keyExtractor={(item) => item.guid}
       showsVerticalScrollIndicator={false}
@@ -230,24 +256,21 @@ const styles = StyleSheet.create({
   },
   mobileCardWrapper: {},
   desktopArticleList: {
-    paddingHorizontal: 16, // This defines the container's outer padding.
+    paddingHorizontal: 16,
     paddingBottom: 120,
   },
   desktopColumnWrapper: {
     justifyContent: 'flex-start',
-    // Use a negative margin to pull the row out, counteracting the card padding.
-    // This makes the content align perfectly with the container padding.
     marginHorizontal: -DESKTOP_GUTTER_HALF,
   },
   desktopCardWrapper: {
-    flexBasis: '25%', // Changed from 33.333% to 25% for 4 columns
-    // Removed paddingVertical, spacing is now handled by the separator
+    flexBasis: '25%',
     paddingHorizontal: DESKTOP_GUTTER_HALF,
   },
   desktopRowSeparator: {
     height: 1,
     width: '100%',
-    marginVertical: 16, // Add vertical margin to create space between rows
+    marginVertical: 16,
   },
   mobileItemSeparator: {
     height: 2,
@@ -278,6 +301,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadMoreButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  allArticlesButtonWrapper: {
+    width: '100%',
+    alignItems: 'flex-end', // Align to the right
+    marginTop: 24,
+    marginBottom: 40,
+    paddingRight: 16, // Add padding to match content
+  },
+  allArticlesButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allArticlesButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },
