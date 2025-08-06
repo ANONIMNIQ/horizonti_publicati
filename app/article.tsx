@@ -81,7 +81,8 @@ export default function ArticleScreen() {
     }
     setFirstImageSrc(extractedFirstImageSrc);
 
-    const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
+    // Updated regex to capture links to Medium media, YouTube, Spotify, Deezer, and Apple Podcasts
+    const mediaLinkRegex = /<a[^>]+href="(https:\/\/(?:medium\.com\/media\/|www\.youtube\.com\/|youtu\.be\/|open\.spotify\.com\/|deezer\.com\/|podcasts\.apple\.com\/)[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
     let embedCounter = 0;
     let tempHtml = contentHtml;
