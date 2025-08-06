@@ -45,6 +45,7 @@ export default function ArticleScreen() {
   const [processedHtml, setProcessedHtml] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
+  const [firstImageCalculatedHeight, setFirstImageCalculatedHeight] = useState<number | null>(null);
   const hasTwitterScriptLoaded = useRef(false);
 
   // Shared value for image opacity animation
@@ -80,6 +81,24 @@ export default function ArticleScreen() {
       contentHtml = contentHtml.replace(firstImageMatch[0], '');
     }
     setFirstImageSrc(extractedFirstImageSrc);
+
+    // Calculate image height dynamically for web
+    if (extractedFirstImageSrc && Platform.OS === 'web') {
+      Image.getSize(extractedFirstImageSrc, (originalWidth, originalHeight) => {
+        const availableWidth = isDesktopWeb
+          ? DESKTOP_CONTENT_MAX_CONTAINER_WIDTH - 16 * 2 // desktopScrollContainer padding
+          : width - 20 * 2; // contentContainer padding
+
+        const calculatedHeight = (availableWidth / originalWidth) * originalHeight;
+        setFirstImageCalculatedHeight(calculatedHeight);
+      }, (error) => {
+        console.error("Couldn't get image size", error);
+        setFirstImageCalculatedHeight(isDesktopWeb ? 550 : 250); // Fallback to default fixed height
+      });
+    } else if (Platform.OS !== 'web') {
+      // For native, we can keep a default height or handle it differently if needed
+      setFirstImageCalculatedHeight(isDesktopWeb ? 550 : 250); // Fallback for native
+    }
 
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
@@ -164,7 +183,7 @@ export default function ArticleScreen() {
       setProcessedHtml(tempHtml);
       setIsLoadingContent(false);
     }
-  }, [article]);
+  }, [article, isDesktopWeb, width]); // Added isDesktopWeb and width to dependencies
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -257,7 +276,7 @@ export default function ArticleScreen() {
               source={{ uri: firstImageSrc }}
               style={[
                 styles.firstImage,
-                !isDesktopWeb && styles.mobileWebFirstImage,
+                { height: firstImageCalculatedHeight || (isDesktopWeb ? 550 : 250) }, // Use calculated height or fallback
                 animatedImageStyle,
               ]}
               resizeMode="cover"
@@ -358,18 +377,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   desktopFirstImageWrapper: {
-    // On desktop, this wrapper should take the full width of the DESKTOP_CONTENT_MAX_CONTAINER_WIDTH
-    // and apply horizontal padding to match the rest of the content.
-    // The `width: '100%'` from `firstImageWrapper` will now refer to the `desktopScrollContainer`'s max width.
-    paddingHorizontal: 16, // Add padding to match the desktopContentContainer
-    // Remove `width` and `marginLeft` as they were making it narrower.
+    // Removed paddingHorizontal: 16; it's handled by desktopScrollContainer
+    alignSelf: 'center', // Center the wrapper within the max width container
+    width: '100%', // Take full width of desktopScrollContainer's content area
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
-    height: 550, // Default height for desktop web
+    // height will be set dynamically based on aspect ratio
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 250, // Smaller height for mobile/tablet web
+    height: 250, // Fallback height for mobile/tablet web if dynamic calculation fails
   },
 });
