@@ -226,7 +226,6 @@ export default function ResponsiveArticleList({
     }
 
     const allArticlesLoaded = visibleArticleCount >= articles.length;
-    const wasLoadMoreEverAvailable = articles.length > INITIAL_DISPLAY_COUNT;
 
     // On desktop, the button is rendered in the grid, so the footer is only for the initial "Load More" button.
     if (isDesktopWeb) {
@@ -237,8 +236,8 @@ export default function ResponsiveArticleList({
 
     // On mobile, show "Show All" button when all articles are loaded.
     if (!isDesktopWeb && allArticlesLoaded) {
-      // Show this button only if the "load more" was clicked, OR if it was never needed.
-      if (hasClickedLoadMore || !wasLoadMoreEverAvailable) {
+      // Show this button only if the "load more" was clicked.
+      if (hasClickedLoadMore) {
         return (
           <View style={styles.footerButtonsContainer}>
             <Pressable
