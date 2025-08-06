@@ -10,39 +10,40 @@ function getYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Utility to extract Deezer ID (track, album, playlist)
+// Utility to extract Deezer ID (track, album, playlist, episode)
 function getDeezerId(url: string): { type: string; id: string } | null {
-  const trackMatch = url.match(/deezer\.com\/track\/(\d+)/);
-  if (trackMatch) return { type: 'track', id: trackMatch[1] };
-  const albumMatch = url.match(/deezer\.com\/album\/(\d+)/);
-  if (albumMatch) return { type: 'album', id: albumMatch[1] };
-  const playlistMatch = url.match(/deezer\.com\/playlist\/(\d+)/);
-  if (playlistMatch) return { type: 'playlist', id: playlistMatch[1] };
+  if (!url) return null;
+  // Regex for deezer.com/type/ID or widget.deezer.com/widget/dark/type/ID
+  const deezerRegex = /(?:deezer\.com\/(?:en\/)?|widget\.deezer\.com\/widget\/(?:dark\/)?)(track|album|playlist|episode)\/(\d+)/i;
+  const match = url.match(deezerRegex);
+  if (match) {
+    return { type: match[1], id: match[2] };
+  }
   return null;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
   try {
     const url = new URL(request.url);
-    let mediaUrl = url.searchParams.get('mediaUrl'); // Expecting a single media URL
+    let mediaUrl = url.searchParams.get('mediaUrl');
 
     if (!mediaUrl) {
       return new Response(JSON.stringify({ error: 'Missing mediaUrl' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+      }) as unknown as import("@cloudflare/workers-types").Response;
     }
 
     const youtubeId = getYouTubeVideoId(mediaUrl);
-    const deezerInfo = getDeezerId(mediaUrl);
+    let deezerInfo = getDeezerId(mediaUrl); // Check if mediaUrl is already a direct Deezer link
     let embedHtml: string | null = null;
     let isTwitterEmbed = false;
 
     if (youtubeId) {
-      // Wrap YouTube iframe in a responsive container
       embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
     } else if (deezerInfo) {
-      embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=700&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
+      // Use a specific class for Deezer embeds with 1:1 aspect ratio
+      embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1"></iframe></div>`;
     } else {
       // Fallback for other embeds: fetch the media link and extract embed code
       try {
@@ -51,10 +52,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
-          redirect: 'follow' // Ensure redirects are followed
+          redirect: 'follow'
         });
 
-        // If there was a redirect, update the URL to the final destination
         if (mediaResponse.redirected) {
           currentFetchUrl = mediaResponse.url;
           // Re-check for YouTube/Deezer if it redirected to a direct media link
@@ -62,34 +62,43 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
           const redirectedDeezerInfo = getDeezerId(currentFetchUrl);
           if (redirectedYoutubeId) {
             embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
-            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            }) as unknown as import("@cloudflare/workers-types").Response;
           } else if (redirectedDeezerInfo) {
-            embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=700&height=350&color=ff0000&layout=dark&size=medium&type=${redirectedDeezerInfo.type}s&id=${redirectedDeezerInfo.id}&app_id=1"></iframe>`;
-            return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            }) as unknown as import("@cloudflare/workers-types").Response;
+            deezerInfo = redirectedDeezerInfo; // Update deezerInfo
+            embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1"></iframe></div>`;
           }
         }
 
-        if (!mediaResponse.ok) {
-          console.warn(`Failed to fetch media link ${mediaUrl}: ${mediaResponse.statusText}`);
-          embedHtml = null;
-        } else {
+        if (!embedHtml && mediaResponse.ok) { // Only proceed if embedHtml hasn't been set by direct YouTube/Deezer link
           const mediaHtml = await mediaResponse.text();
           const $$ = load(mediaHtml);
           
           // 1. Look for direct iframe or blockquote embeds
           const directEmbed = $$('iframe, blockquote.twitter-tweet, div.twitter-tweet').first();
           if (directEmbed.length > 0) {
-            embedHtml = directEmbed.html();
-            if (directEmbed.hasClass('twitter-tweet')) {
-              isTwitterEmbed = true;
+            let extractedSrc = directEmbed.attr('src');
+            if (directEmbed.is('iframe') && extractedSrc && extractedSrc.includes('cdn.embedly.com/widgets/media.html')) {
+              // This is an embedly iframe, try to extract the inner src
+              const embedlyUrl = new URL(extractedSrc);
+              const innerSrcParam = embedlyUrl.searchParams.get('src');
+              if (innerSrcParam) {
+                const decodedInnerSrc = decodeURIComponent(innerSrcParam);
+                const embedlyDeezerInfo = getDeezerId(decodedInnerSrc);
+                if (embedlyDeezerInfo) {
+                  deezerInfo = embedlyDeezerInfo; // Update deezerInfo
+                  embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1"></iframe></div>`;
+                }
+              }
             }
-            // If it's an iframe, wrap it for responsiveness
-            if (directEmbed.is('iframe')) {
-              embedHtml = `<div class="video-responsive">${embedHtml}</div>`;
+            
+            if (!embedHtml) { // If not handled as a specific embedly Deezer, use the direct embed
+              embedHtml = directEmbed.html();
+              if (directEmbed.hasClass('twitter-tweet')) {
+                isTwitterEmbed = true;
+              }
+              // If it's an iframe, wrap it for responsiveness (default 16:9)
+              if (directEmbed.is('iframe')) {
+                embedHtml = `<div class="video-responsive">${embedHtml}</div>`;
+              }
             }
           } else {
             // 2. Fallback to looking for document.write in script tags
@@ -128,12 +137,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-    }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    }) as unknown as import("@cloudflare/workers-types").Response; // Explicit cast
+    }) as unknown as import("@cloudflare/workers-types").Response;
   }
 };

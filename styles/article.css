@@ -96,6 +96,26 @@
   border: none;
 }
 
+/* Responsive Deezer container for 1:1 aspect ratio */
+.article-content .deezer-responsive {
+  position: relative;
+  padding-bottom: 100%; /* 1:1 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  max-width: 100%;
+  background: #000; /* Fallback background */
+  margin-bottom: 16px; /* Consistent spacing */
+}
+
+.article-content .deezer-responsive iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
 /* Specific styles for links that are meant to be buttons */
 .article-content .external-link-button {
   display: block; /* Make it a block element to allow margin: auto for centering */
@@ -112,7 +132,7 @@
   font-size: 14px; /* Smaller font size */
   font-weight: 600; /* Match comments button font-weight */
   line-height: 14px; /* Explicitly set line height to match font size */
-  /* Colors will be handled by JS for dynamic theming */
+  /* Colors will be handled by JS for dynamic themicng */
 }
 
 /* Ensure code blocks are styled */
