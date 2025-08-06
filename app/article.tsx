@@ -45,7 +45,6 @@ export default function ArticleScreen() {
   const [processedHtml, setProcessedHtml] = useState('');
   const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [firstImageSrc, setFirstImageSrc] = useState<string | null>(null);
-  // Removed firstImageCalculatedHeight state
   const hasTwitterScriptLoaded = useRef(false);
 
   // Shared value for image opacity animation
@@ -81,8 +80,6 @@ export default function ArticleScreen() {
       contentHtml = contentHtml.replace(firstImageMatch[0], '');
     }
     setFirstImageSrc(extractedFirstImageSrc);
-
-    // Removed dynamic height calculation for image
 
     const mediaLinkRegex = /<a[^>]+href="(https:\/\/medium\.com\/media\/[^"]+)"[^>]*>.*?<\/a>/g;
     const mediaUrls: { url: string; placeholderId: string }[] = [];
@@ -167,7 +164,7 @@ export default function ArticleScreen() {
       setProcessedHtml(tempHtml);
       setIsLoadingContent(false);
     }
-  }, [article]); // Removed isDesktopWeb and width from dependencies as they are no longer needed for image height
+  }, [article]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -366,10 +363,10 @@ const styles = StyleSheet.create({
   },
   firstImage: {
     width: '100%', // Image fills its parent wrapper
-    height: 400, // Fixed height for desktop web
+    height: 450, // Fixed height for desktop web, increased for more square-like appearance
     resizeMode: 'cover',
   },
   mobileWebFirstImage: {
-    height: 250, // Fixed height for mobile/tablet web
+    height: 300, // Fixed height for mobile/tablet web, increased for more square-like appearance
   },
 });
