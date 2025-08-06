@@ -43,13 +43,14 @@ function DiscoverHeaderContent({
       style={[
         styles.headerContentInnerWrapper,
         isMobileWeb && styles.mobileWebHeaderContentInnerWrapper, // Apply specific styles for mobile web
-        isDesktopWeb && styles.desktopHeaderContentInnerWrapper,
+        isDesktopWeb ? styles.desktopHeaderContentInnerWrapper : styles.mobileHeaderContentInnerWrapper,
       ]}
     >
       <View
         style={[
           styles.headerContainer,
           isWeb && { marginBottom: 20 }, // Add space between subtitle and search box for web
+          !isDesktopWeb && styles.mobileHeaderContainer, // Apply specific margin for mobile
         ]}
       >
         <View style={styles.titleAndLogoContainer}>
@@ -310,9 +311,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingTop: 20,
   },
+  mobileHeaderContentInnerWrapper: {
+    paddingBottom: 8, // Reduced padding for mobile
+  },
   mobileWebHeaderContentInnerWrapper: {
     paddingTop: 0,
-    paddingBottom: 16,
+    paddingBottom: 8, // Reduced padding for mobile web
   },
   desktopHeaderContentInnerWrapper: {
     flex: undefined,
@@ -322,6 +326,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   headerContainer: {},
+  mobileHeaderContainer: {
+    marginBottom: 8, // Reduced margin for mobile
+  },
   titleAndLogoContainer: {
     flexDirection: 'row',
     alignItems: 'center',

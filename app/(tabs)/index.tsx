@@ -24,13 +24,17 @@ function FeedHeaderContent() {
     <View
       style={[
         styles.headerContentInnerWrapper,
-        isDesktopWeb && styles.desktopHeaderContentInnerWrapper,
+        isDesktopWeb ? styles.desktopHeaderContentInnerWrapper : styles.mobileHeaderContentInnerWrapper,
       ]}
     >
       <View style={styles.headerContainer}>
         <View style={styles.titleAndLogoContainer}>
           <Text
-            style={[styles.headerTitle, { color: Colors[colorScheme].text }]}
+            style={[
+              styles.headerTitle,
+              { color: Colors[colorScheme].text },
+              !isDesktopWeb && styles.mobileHeaderTitle,
+            ]}
           >
             Публикации
           </Text>
@@ -197,6 +201,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 16,
   },
+  mobileHeaderContentInnerWrapper: {
+    paddingBottom: 8, // Reduced padding for mobile
+  },
   desktopHeaderContentInnerWrapper: {
     paddingHorizontal: 2,
   },
@@ -209,6 +216,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 34,
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  mobileHeaderTitle: {
+    marginBottom: 2, // Reduced margin for mobile
   },
   headerSubtitle: {
     fontSize: 16,
