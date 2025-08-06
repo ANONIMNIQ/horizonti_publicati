@@ -128,6 +128,17 @@
   display: block; /* Remove extra space below iframe */
 }
 
+/* Apple Podcast embed wrapper */
+.article-content .apple-podcast-embed-wrapper {
+  margin-bottom: 16px; /* Consistent spacing */
+  width: 100%;
+}
+
+.article-content .apple-podcast-embed-wrapper iframe {
+  max-width: 100%; /* Ensure it doesn't overflow */
+  display: block; /* Remove extra space below iframe */
+}
+
 /* Specific styles for links that are meant to be buttons */
 .article-content .external-link-button {
   display: block; /* Make it a block element to allow margin: auto for centering */
