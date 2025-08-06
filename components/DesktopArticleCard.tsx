@@ -43,7 +43,7 @@ export default function DesktopArticleCard({ article }: { article: Article }) {
           <View style={styles.cardContent}>
             <Text
               style={[styles.cardTitle, { color: Colors[colorScheme].text }]}
-              numberOfLines={6}
+              numberOfLines={5} // Adjusted for smaller card
             >
               {decode(article.title)}
             </Text>
@@ -102,14 +102,14 @@ const styles = StyleSheet.create({
     // The wrapper now controls the width, this container just holds the content
   },
   cardContent: {
-    height: 260, // Increased height for more title space
-    justifyContent: 'space-between', // Pushes title to top, footer to bottom
-    paddingBottom: 20, // Adjusted space
+    height: 240, // Adjusted height for 4 columns
+    justifyContent: 'space-between',
+    paddingBottom: 16, // Adjusted space
   },
   cardTitle: {
-    fontSize: 22, // Smaller font size
-    fontWeight: '400', // Thinner font weight
-    lineHeight: 30, // Adjusted line height
+    fontSize: 18, // Smaller font size
+    fontWeight: '400',
+    lineHeight: 26, // Adjusted line height
     textAlign: 'left',
   },
   cardFooter: {
@@ -117,31 +117,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   categoryInitialCircle: {
-    width: 24, // Smaller circle
-    height: 24,
-    borderRadius: 12,
+    width: 20, // Smaller circle
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8, // Adjusted margin
+    marginRight: 6, // Adjusted margin
   },
   categoryInitialText: {
-    fontSize: 12, // Smaller font
+    fontSize: 11, // Smaller font
     fontWeight: 'bold',
   },
   categoryAuthorTextContainer: {
     flexDirection: 'column',
   },
   cardCategory: {
-    fontSize: 12, // Smaller font
+    fontSize: 11, // Smaller font
     fontWeight: '400',
   },
   cardCreator: {
-    fontSize: 12, // Smaller font
+    fontSize: 11, // Smaller font
     fontWeight: '400',
   },
   cardImage: {
     width: '100%',
-    height: 220, // Adjusted height for better proportion
+    height: 180, // Adjusted height for better proportion
     resizeMode: 'cover',
   },
 });

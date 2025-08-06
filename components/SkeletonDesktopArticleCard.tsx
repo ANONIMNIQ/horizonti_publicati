@@ -34,6 +34,12 @@ export default function SkeletonDesktopArticleCard() {
               { width: '60%', backgroundColor: skeletonBackgroundColor },
             ]}
           />
+          <View
+            style={[
+              styles.cardTitlePlaceholder,
+              { width: '70%', backgroundColor: skeletonBackgroundColor },
+            ]}
+          />
         </View>
         <View style={styles.cardFooter}>
           <View
@@ -59,27 +65,26 @@ const styles = StyleSheet.create({
     // Matches the real card structure
   },
   cardContent: {
-    height: 260, // Match real card
+    height: 240, // Match real card
     justifyContent: 'space-between',
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   cardTitlePlaceholder: {
-    height: 30, // Match line height
-    width: '90%',
+    height: 20, // Match line height
     borderRadius: 4,
-    marginBottom: 10, // Space between lines
+    marginBottom: 8, // Space between lines
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   cardCreatorPlaceholder: {
-    height: 28, // Match height of the smaller metadata
-    width: '40%',
+    height: 24, // Match height of the smaller metadata
+    width: '50%',
     borderRadius: 4,
   },
   cardImagePlaceholder: {
     width: '100%',
-    height: 220, // Match real card
+    height: 180, // Match real card
   },
 });
