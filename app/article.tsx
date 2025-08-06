@@ -68,17 +68,6 @@ export default function ArticleScreen() {
     }
 
     let contentHtml = article['content:encoded'];
-
-    // Remove width, height, and style attributes from all img tags
-    // This ensures our CSS can control sizing and appearance
-    contentHtml = contentHtml.replace(/<img([^>]*?)width="[^"]*"([^>]*?)>/g, '<img$1$2>');
-    contentHtml = contentHtml.replace(/<img([^>]*?)height="[^"]*"([^>]*?)>/g, '<img$1$2>');
-    contentHtml = contentHtml.replace(/<img([^>]*?)style="[^"]*"([^>]*?)>/g, '<img$1$2>');
-
-    // Remove img tags with empty or invalid src attributes (e.g., src="", src="#")
-    // This should address the "empty image element" issue
-    contentHtml = contentHtml.replace(/<img[^>]*src=["'](?:|#)["'][^>]*>/g, '');
-
     let extractedFirstImageSrc: string | null = null;
 
     // Regex to find the first <img> tag and its full match
@@ -317,7 +306,7 @@ export default function ArticleScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { paddingTop: 60, paddingBottom: 40 },
+  scrollContainer: { paddingTop: 60, paddingBottom: 40 }, // Changed from 80 to 60
   desktopScrollContainer: { alignSelf: 'center', width: '100%', maxWidth: DESKTOP_CONTENT_MAX_CONTAINER_WIDTH, paddingTop: 0 },
   contentContainer: { paddingHorizontal: 20 },
   desktopContentContainer: { paddingHorizontal: 16 },
