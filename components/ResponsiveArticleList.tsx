@@ -67,54 +67,59 @@ export default function ResponsiveArticleList({
 
   const renderItem = ({ item, index }: { item: ListItem; index: number }) => {
     const isButton = 'type' in item && item.type === 'allArticlesButton';
-    const itemFlexBasis = isButton ? '50%' : `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`; // Button takes 2 columns, articles take 1
 
-    // Determine if a left border is needed for desktop grid layout
-    const needsLeftBorder = isDesktopWeb && (index % NUM_COLUMNS_DESKTOP !== 0);
-    const paddingLeft = needsLeftBorder ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF;
+    if (isDesktopWeb) {
+      const itemFlexBasis = isButton ? '50%' : `${(1 / NUM_COLUMNS_DESKTOP) * 100}%`; // Button takes 2 columns, articles take 1
+      const needsLeftBorder = (index % NUM_COLUMNS_DESKTOP !== 0);
+      const paddingLeft = needsLeftBorder ? DESKTOP_GUTTER_HALF * 2 : DESKTOP_GUTTER_HALF;
+      const cardEffectiveHeight = 380; // Height of a DesktopArticleCard is effectively 220 (content) + 160 (image) = 380
 
-    // Height of a DesktopArticleCard is effectively 220 (content) + 160 (image) = 380
-    const cardEffectiveHeight = 380; 
-
-    return (
-      <View
-        style={[
-          styles.desktopCardWrapper,
-          {
-            flexBasis: itemFlexBasis,
-            borderLeftWidth: needsLeftBorder ? 1 : 0,
-            borderColor: Colors[colorScheme].cardBorder,
-            paddingLeft: paddingLeft,
-          },
-          isButton && { height: cardEffectiveHeight, justifyContent: 'center', alignItems: 'center' }, // Center button vertically and horizontally
-        ]}
-      >
-        {isButton ? (
-          <Pressable
-            onPress={() => { /* TODO: Implement what this button does */ }}
-            style={({ pressed }) => [
-              styles.allArticlesButton,
-              {
-                backgroundColor: pressed
-                  ? Colors[colorScheme].commentsButtonBackgroundPressed
-                  : Colors[colorScheme].commentsButtonBackground,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.allArticlesButtonText,
-                { color: Colors[colorScheme].commentsButtonText },
+      return (
+        <View
+          style={[
+            styles.desktopCardWrapper,
+            {
+              flexBasis: itemFlexBasis,
+              borderLeftWidth: needsLeftBorder ? 1 : 0,
+              borderColor: Colors[colorScheme].cardBorder,
+              paddingLeft: paddingLeft,
+            },
+            isButton && { height: cardEffectiveHeight, justifyContent: 'center', alignItems: 'center' }, // Center button vertically and horizontally
+          ]}
+        >
+          {isButton ? (
+            <Pressable
+              onPress={() => { /* TODO: Implement what this button does */ }}
+              style={({ pressed }) => [
+                styles.allArticlesButton,
+                {
+                  backgroundColor: pressed
+                    ? Colors[colorScheme].commentsButtonBackgroundPressed
+                    : Colors[colorScheme].commentsButtonBackground,
+                },
               ]}
             >
-              ВСИЧКИ ПУБЛИКАЦИИ
-            </Text>
-          </Pressable>
-        ) : (
-          <DesktopArticleCard article={item as Article} />
-        )}
-      </View>
-    );
+              <Text
+                style={[
+                  styles.allArticlesButtonText,
+                  { color: Colors[colorScheme].commentsButtonText },
+                ]}
+              >
+                ВСИЧКИ ПУБЛИКАЦИИ
+              </Text>
+            </Pressable>
+          ) : (
+            <DesktopArticleCard article={item as Article} />
+          )}
+        </View>
+      );
+    } else { // Mobile/Tablet
+      return (
+        <View style={styles.mobileCardWrapper}>
+          <ArticleCard article={item as Article} />
+        </View>
+      );
+    }
   };
 
   const renderSkeleton = ({ index }: { index: number }) => {
@@ -128,8 +133,7 @@ export default function ResponsiveArticleList({
               borderLeftWidth: index % NUM_COLUMNS_DESKTOP !== 0 ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
               paddingLeft:
-                index % NUM_COLUMNS_DESKTOP !== 0
-                  ? DESKTOP_GUTTER_HALF * 2
+                index % NUM_COLUMNS_DESKTOL_GUTTER_HALF * 2
                   : DESKTOP_GUTTER_HALF,
             },
           ]}
