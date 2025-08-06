@@ -133,7 +133,8 @@ export default function ResponsiveArticleList({
               borderLeftWidth: index % NUM_COLUMNS_DESKTOP !== 0 ? 1 : 0,
               borderColor: Colors[colorScheme].cardBorder,
               paddingLeft:
-                index % NUM_COLUMNS_DESKTOL_GUTTER_HALF * 2
+                index % NUM_COLUMNS_DESKTOP !== 0
+                  ? DESKTOP_GUTTER_HALF * 2
                   : DESKTOP_GUTTER_HALF,
             },
           ]}
