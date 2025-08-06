@@ -226,6 +226,7 @@ export default function ResponsiveArticleList({
     }
 
     const allArticlesLoaded = visibleArticleCount >= articles.length;
+    const wasLoadMoreEverAvailable = articles.length > INITIAL_DISPLAY_COUNT;
 
     // On desktop, the button is rendered in the grid, so the footer is only for the initial "Load More" button.
     if (isDesktopWeb) {
@@ -236,25 +237,28 @@ export default function ResponsiveArticleList({
 
     // On mobile, show "Show All" button when all articles are loaded.
     if (!isDesktopWeb && allArticlesLoaded) {
-      return (
-        <View style={styles.footerButtonsContainer}>
-          <Pressable
-            onPress={() => Linking.openURL('https://medium.com/horizonti')}
-            style={({ pressed }) => [
-              styles.allArticlesButton,
-              {
-                backgroundColor: pressed
-                  ? Colors[colorScheme].commentsButtonBackgroundPressed
-                  : Colors[colorScheme].commentsButtonBackground,
-              },
-            ]}
-          >
-            <Text style={[styles.allArticlesButtonText, { color: Colors[colorScheme].commentsButtonText }]}>
-              ВСИЧКИ ПУБЛИКАЦИИ
-            </Text>
-          </Pressable>
-        </View>
-      );
+      // Show this button only if the "load more" was clicked, OR if it was never needed.
+      if (hasClickedLoadMore || !wasLoadMoreEverAvailable) {
+        return (
+          <View style={styles.footerButtonsContainer}>
+            <Pressable
+              onPress={() => Linking.openURL('https://medium.com/horizonti')}
+              style={({ pressed }) => [
+                styles.allArticlesButton,
+                {
+                  backgroundColor: pressed
+                    ? Colors[colorScheme].commentsButtonBackgroundPressed
+                    : Colors[colorScheme].commentsButtonBackground,
+                },
+              ]}
+            >
+              <Text style={[styles.allArticlesButtonText, { color: Colors[colorScheme].commentsButtonText }]}>
+                ВСИЧКИ ПУБЛИКАЦИИ
+              </Text>
+            </Pressable>
+          </View>
+        );
+      }
     }
 
     // Show "Load More" button if there are more articles to load.
