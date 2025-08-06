@@ -102,14 +102,14 @@ const styles = StyleSheet.create({
     // The wrapper now controls the width, this container just holds the content
   },
   cardContent: {
-    height: 240, // Adjusted height for 4 columns
+    height: 220, // Reduced height for more compact card
     justifyContent: 'space-between',
-    paddingBottom: 16, // Adjusted space
+    paddingBottom: 16,
   },
   cardTitle: {
-    fontSize: 18, // Smaller font size
+    fontSize: 18,
     fontWeight: '400',
-    lineHeight: 26, // Adjusted line height
+    lineHeight: 26,
     textAlign: 'left',
   },
   cardFooter: {
@@ -117,31 +117,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   categoryInitialCircle: {
-    width: 20, // Smaller circle
+    width: 20,
     height: 20,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6, // Adjusted margin
+    marginRight: 6,
   },
   categoryInitialText: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     fontWeight: 'bold',
   },
   categoryAuthorTextContainer: {
     flexDirection: 'column',
   },
   cardCategory: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     fontWeight: '400',
   },
   cardCreator: {
-    fontSize: 11, // Smaller font
+    fontSize: 11,
     fontWeight: '400',
   },
   cardImage: {
     width: '100%',
-    height: 180, // Adjusted height for better proportion
+    height: 160, // Reduced height for more compact card
     resizeMode: 'cover',
   },
 });

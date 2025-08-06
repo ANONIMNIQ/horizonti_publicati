@@ -65,26 +65,27 @@ const styles = StyleSheet.create({
     // Matches the real card structure
   },
   cardContent: {
-    height: 240, // Match real card
+    height: 220, // Match new real card height
     justifyContent: 'space-between',
     paddingBottom: 16,
   },
   cardTitlePlaceholder: {
-    height: 20, // Match line height
+    height: 20,
     borderRadius: 4,
-    marginBottom: 8, // Space between lines
+    marginBottom: 8,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   cardCreatorPlaceholder: {
-    height: 24, // Match height of the smaller metadata
+    height: 24,
     width: '50%',
     borderRadius: 4,
   },
   cardImagePlaceholder: {
     width: '100%',
-    height: 180, // Match real card
+    height: 160, // Match new real card height
+    borderRadius: 8, // Added border radius for consistency
   },
 });
