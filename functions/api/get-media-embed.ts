@@ -24,7 +24,7 @@ function parseDeezerUrlForInfo(url: string): { type: string; id: string } | null
 
 /**
  * Attempts to get the Deezer embed HTML (iframe) from a given URL.
- * This function will prioritize constructing the official widget.deezer.com/plugins/player URL.
+ * This function will prioritize constructing the official widget.deezer.com/widget/auto URL.
  */
 async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> {
   try {
@@ -41,17 +41,18 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
       return null;
     }
 
-    const finalDeezerPageUrl = response.url; // This is the URL after all redirects (e.g., deezer.com/en/episode/ID)
+    const finalDeezerPageUrl = response.url; // This is the URL after all redirects (e.g., deezer.com/en/episode/775626721?host=0...)
 
-    // Step 2: Try to extract Deezer content type and ID from the final URL
-    const deezerInfo = parseDeezerUrlForInfo(finalDeezerPageUrl);
+    // Clean the URL to get only the origin and pathname for parsing
+    const cleanDeezerUrl = new URL(finalDeezerPageUrl);
+    const baseUrlForParsing = cleanDeezerUrl.origin + cleanDeezerUrl.pathname;
+
+    // Step 2: Try to extract Deezer content type and ID from the clean final URL
+    const deezerInfo = parseDeezerUrlForInfo(baseUrlForParsing);
     if (deezerInfo) {
-      // Construct the official Deezer widget player URL
-      // The 'app_id' is often required, '1' is a common default for generic embeds.
-      // The 'layout' can be 'dark' or 'light', 'size' can be 'medium' or 'small'.
-      // For a podcast episode, 'type' would be 'episode', 'id' would be the episode ID.
-      const widgetUrl = `https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1`;
-      return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${widgetUrl}"></iframe></div>`;
+      // Construct the official Deezer widget player URL as specified by the user
+      const widgetUrl = `https://widget.deezer.com/widget/auto/${deezerInfo.type}/${deezerInfo.id}`;
+      return `<div class="deezer-responsive"><iframe title="deezer-widget" src="${widgetUrl}" width="100%" height="300" frameborder="0" allowtransparency="true" allow="encrypted-media; clipboard-write"></iframe></div>`;
     }
 
     // Step 3: Fallback to scraping if direct construction failed (e.g., URL is not a standard Deezer content page)
