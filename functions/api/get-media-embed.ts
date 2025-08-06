@@ -10,21 +10,26 @@ function getYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Utility to extract Deezer ID (track, album, playlist, episode) from deezer.com URLs
-// This is used for deezer.com/type/ID links to construct the plugins/player URL
-function getDeezerInfoFromDeezerUrl(url: string): { type: string; id: string } | null {
+// Utility to get the final Deezer embed URL from various Deezer link types
+function getFinalDeezerEmbedUrl(url: string): string | null {
   if (!url) return null;
+
+  // Case 1: Already a widget.deezer.com URL
+  if (url.includes('widget.deezer.com/widget/')) {
+    return url; // Use it directly
+  }
+
+  // Case 2: deezer.com/type/ID URL, needs conversion to widget URL
   const deezerRegex = /deezer\.com\/(?:en\/)?(track|album|playlist|episode)\/(\d+)/i;
   const match = url.match(deezerRegex);
   if (match) {
-    return { type: match[1], id: match[2] };
+    const type = match[1];
+    const id = match[2];
+    // Construct the widget URL. app_id=1 is a generic ID, often required.
+    return `https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${type}&id=${id}&app_id=1`;
   }
-  return null;
-}
 
-// Utility to check if a URL is a direct Deezer widget URL
-function isDeezerWidgetUrl(url: string): boolean {
-  return url.includes('widget.deezer.com/widget/');
+  return null;
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
@@ -78,19 +83,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
                 const innerSrcParam = embedlyUrl.searchParams.get('src');
                 if (innerSrcParam) {
                   const decodedInnerSrc = decodeURIComponent(innerSrcParam);
-                  
-                  if (isDeezerWidgetUrl(decodedInnerSrc)) {
-                    // If the inner src is a Deezer widget URL, use it directly
-                    embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${decodedInnerSrc}"></iframe></div>`;
+                  const finalDeezerSrc = getFinalDeezerEmbedUrl(decodedInnerSrc); // Use the new helper
+                  if (finalDeezerSrc) {
+                    embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${finalDeezerSrc}"></iframe></div>`;
                   } else {
-                    // Fallback for other embedly types, or if it's a regular deezer.com link
-                    const deezerInfo = getDeezerInfoFromDeezerUrl(decodedInnerSrc);
-                    if (deezerInfo) {
-                      embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1"></iframe></div>`;
-                    } else {
-                      // If it's an iframe from embedly but not a recognized Deezer, use the embedly iframe itself
-                      embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
-                    }
+                    // If it's an iframe from embedly but not a recognized Deezer, use the embedly iframe itself
+                    embedHtml = `<div class="video-responsive"><iframe src="${extractedSrc}" frameborder="0" allowfullscreen></iframe></div>`;
                   }
                 }
               } else {
@@ -118,10 +116,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
                   }
                   // If the decoded HTML contains an iframe, wrap it
                   if (decodedHtml.includes('<iframe')) {
-                    // Check if this iframe is a Deezer widget
                     const iframeSrcMatch = decodedHtml.match(/<iframe[^>]+src="([^">]+)"/);
-                    if (iframeSrcMatch && isDeezerWidgetUrl(iframeSrcMatch[1])) {
-                      embedHtml = `<div class="deezer-responsive">${decodedHtml}</div>`;
+                    if (iframeSrcMatch) {
+                      const finalDeezerSrc = getFinalDeezerEmbedUrl(iframeSrcMatch[1]);
+                      if (finalDeezerSrc) {
+                        embedHtml = `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${finalDeezerSrc}"></iframe></div>`;
+                      } else {
+                        embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
+                      }
                     } else {
                       embedHtml = `<div class="video-responsive">${decodedHtml}</div>`;
                     }
