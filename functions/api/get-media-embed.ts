@@ -39,7 +39,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
     let isTwitterEmbed = false;
 
     if (youtubeId) {
-      embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
+      // Wrap YouTube iframe in a responsive container
+      embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
     } else if (deezerInfo) {
       embedHtml = `<iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=700&height=350&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}s&id=${deezerInfo.id}&app_id=1"></iframe>`;
     } else {
@@ -60,7 +61,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
           const redirectedYoutubeId = getYouTubeVideoId(currentFetchUrl);
           const redirectedDeezerInfo = getDeezerId(currentFetchUrl);
           if (redirectedYoutubeId) {
-            embedHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe>`;
+            embedHtml = `<div class="video-responsive"><iframe width="560" height="315" src="https://www.youtube.com/embed/${redirectedYoutubeId}?autoplay=0&modestbranding=1&rel=0" frameborder="0" allowfullscreen></iframe></div>`;
             return new Response(JSON.stringify({ embedHtml, isTwitterEmbed }), {
               headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             }) as unknown as import("@cloudflare/workers-types").Response;
@@ -86,6 +87,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
             if (directEmbed.hasClass('twitter-tweet')) {
               isTwitterEmbed = true;
             }
+            // If it's an iframe, wrap it for responsiveness
+            if (directEmbed.is('iframe')) {
+              embedHtml = `<div class="video-responsive">${embedHtml}</div>`;
+            }
           } else {
             // 2. Fallback to looking for document.write in script tags
             $$('script').each((i, el) => {
@@ -100,6 +105,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request }) => {
                   embedHtml = decodedHtml;
                   if (decodedHtml.includes('twitter-tweet')) {
                     isTwitterEmbed = true;
+                  }
+                  // If the decoded HTML contains an iframe, wrap it
+                  if (decodedHtml.includes('<iframe')) {
+                    embedHtml = `<div class="video-responsive">${embedHtml}</div>`;
                   }
                   // Found it, no need to continue
                   return false; // Break out of .each loop
