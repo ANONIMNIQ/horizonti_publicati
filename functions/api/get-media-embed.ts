@@ -10,37 +10,13 @@ function getYouTubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Utility to parse a deezer.com URL (e.g., deezer.com/track/ID) for type and ID
-function parseDeezerUrlForInfo(url: string): { type: string; id: string } | null {
-  if (!url) return null;
-  const deezerRegex = /deezer\.com\/(?:en\/)?(track|album|playlist|episode)\/(\d+)/i;
-  const match = url.match(deezerRegex);
-  if (match) {
-    return { type: match[1], id: match[2] };
-  }
-  return null;
-}
-
 /**
- * Attempts to get the Deezer embed HTML from various Deezer-related URLs.
- * Handles direct widget URLs, standard deezer.com URLs (by constructing plugin URL),
- * and resolves link.deezer.com redirects.
- * Also attempts to parse HTML for Deezer iframes, including those from embedly.com.
+ * Attempts to find and return the Deezer embed HTML (iframe) from a given URL.
+ * This function will follow redirects and scrape the final page for the actual widget iframe.
  */
 async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> {
   try {
-    // 1. Check if it's already a direct Deezer widget URL
-    if (urlToProcess.includes('widget.deezer.com/widget/')) {
-      return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${urlToProcess}"></iframe></div>`;
-    }
-
-    // 2. Check if it's a standard Deezer track/album/episode page URL
-    const deezerInfo = parseDeezerUrlForInfo(urlToProcess);
-    if (deezerInfo) {
-      return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${deezerInfo.type}&id=${deezerInfo.id}&app_id=1"></iframe></div>`;
-    }
-
-    // 3. If it's a link.deezer.com or other redirect, fetch and follow redirects
+    // Step 1: Fetch the URL and follow redirects
     let response = await fetch(urlToProcess, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -55,16 +31,13 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
 
     const finalUrl = response.url; // This is the URL after all redirects
 
-    // Re-check the final URL for direct widget or standard Deezer page
+    // Step 2: Check if the final URL is already a direct Deezer widget URL
     if (finalUrl.includes('widget.deezer.com/widget/')) {
       return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${finalUrl}"></iframe></div>`;
     }
-    const finalDeezerInfo = parseDeezerUrlForInfo(finalUrl);
-    if (finalDeezerInfo) {
-      return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="https://www.deezer.com/plugins/player?format=classic&autoplay=false&playlist=true&width=100%25&height=100%25&color=ff0000&layout=dark&size=medium&type=${finalDeezerInfo.type}&id=${finalDeezerInfo.id}&app_id=1"></iframe></div>`;
-    }
 
-    // 4. If still no direct Deezer embed, parse the HTML content of the final URL
+    // Step 3: If not a direct widget, parse the HTML content of the final URL
+    // This covers deezer.com/track/ID pages and embedly.com iframes
     const htmlContent = await response.text();
     const $$ = load(htmlContent);
 
@@ -79,14 +52,42 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
           const innerSrcParam = embedlyUrl.searchParams.get('src');
           if (innerSrcParam) {
             const decodedInnerSrc = decodeURIComponent(innerSrcParam);
-            // Recursively call getDeezerEmbedHtml on the decoded inner src
-            // This handles cases where embedly points to another Deezer link
-            return await getDeezerEmbedHtml(decodedInnerSrc);
+            // If the decoded inner src is a Deezer widget URL, use it
+            if (decodedInnerSrc.includes('widget.deezer.com/widget/')) {
+              return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${decodedInnerSrc}"></iframe></div>`;
+            }
+            // Otherwise, if it's a standard deezer.com link, try to get its embed HTML recursively
+            // This handles cases where embedly points to a deezer.com/track/ID page
+            if (decodedInnerSrc.includes('deezer.com/')) {
+                return await getDeezerEmbedHtml(decodedInnerSrc); // Recursive call
+            }
           }
         }
         // If it's a direct Deezer widget iframe, use it
         if (iframeSrc.includes('widget.deezer.com/widget/')) {
           return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${iframeSrc}"></iframe></div>`;
+        }
+      }
+    }
+
+    // Step 4: If no iframe found, or iframe not a Deezer widget, check for script tags with document.write
+    // This is less common for Deezer but good for general embeds
+    const scriptElements = $$('script');
+    for (let i = 0; i < scriptElements.length; i++) {
+      const scriptContent = $$(scriptElements[i]).html();
+      if (scriptContent) {
+        const writeMatch = scriptContent.match(/document\.write\("(.*)"\)/);
+        if (writeMatch && writeMatch[1]) {
+          const decodedHtml = writeMatch[1]
+            .replace(/\\"/g, '"')
+            .replace(/\\'/g, "'")
+            .replace(/\\\//g, '/');
+          
+          // Check if the decoded HTML contains a Deezer widget iframe
+          const iframeSrcMatch = decodedHtml.match(/<iframe[^>]+src="([^">]+)"/);
+          if (iframeSrcMatch && iframeSrcMatch[1].includes('widget.deezer.com/widget/')) {
+            return `<div class="deezer-responsive">${decodedHtml}</div>`;
+          }
         }
       }
     }
