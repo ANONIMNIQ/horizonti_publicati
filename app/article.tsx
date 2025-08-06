@@ -69,9 +69,15 @@ export default function ArticleScreen() {
 
     let contentHtml = article['content:encoded'];
 
-    // Remove width and height attributes from all img tags to allow CSS to control sizing
+    // Remove width, height, and style attributes from all img tags
+    // This ensures our CSS can control sizing and appearance
     contentHtml = contentHtml.replace(/<img([^>]*?)width="[^"]*"([^>]*?)>/g, '<img$1$2>');
     contentHtml = contentHtml.replace(/<img([^>]*?)height="[^"]*"([^>]*?)>/g, '<img$1$2>');
+    contentHtml = contentHtml.replace(/<img([^>]*?)style="[^"]*"([^>]*?)>/g, '<img$1$2>');
+
+    // Remove img tags with empty or invalid src attributes (e.g., src="", src="#")
+    // This should address the "empty image element" issue
+    contentHtml = contentHtml.replace(/<img[^>]*src=["'](?:|#)["'][^>]*>/g, '');
 
     let extractedFirstImageSrc: string | null = null;
 
