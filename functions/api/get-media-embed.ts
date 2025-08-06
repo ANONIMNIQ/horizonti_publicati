@@ -14,8 +14,8 @@ function getYouTubeVideoId(url: string): string | null {
 // Utility to parse a deezer.com URL (e.g., deezer.com/track/ID) for type and ID
 function parseDeezerUrlForInfo(url: string): { type: string; id: string } | null {
   if (!url) return null;
-  // Regex to capture track, album, playlist, episode and their IDs
-  const deezerRegex = /deezer\.com\/(?:en\/)?(track|album|playlist|episode)\/(\d+)/i;
+  // Regex to capture any content type (track, album, playlist, episode, show, etc.) and their IDs
+  const deezerRegex = /deezer\.com\/(?:en\/)?([a-zA-Z0-9-]+)\/(\d+)/i; // Changed to allow hyphens in type
   const match = url.match(deezerRegex);
   if (match) {
     return { type: match[1], id: match[2] };
@@ -105,12 +105,11 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
     }
 
     // Step 3: Fallback to scraping if direct construction failed (e.g., URL is not a standard Deezer content page)
-    // This might catch cases where the original URL was already an embedly iframe or a direct widget.deezer.com link
     const htmlContent = await response.text();
     const $$ = load(htmlContent);
 
-    // Look for iframes within the fetched HTML
-    const iframe = $$('iframe').first();
+    // Look for iframes that are likely Deezer embeds
+    const iframe = $$('iframe[src*="deezer.com/widget"], iframe[src*="cdn.embedly.com/widgets/media.html?url=https%3A%2F%2Fwww.deezer.com"]').first();
     if (iframe.length > 0) {
       const iframeSrc = iframe.attr('src');
       if (iframeSrc) {
@@ -121,13 +120,13 @@ async function getDeezerEmbedHtml(urlToProcess: string): Promise<string | null> 
           if (innerSrcParam) {
             const decodedInnerSrc = decodeURIComponent(innerSrcParam);
             // Recursively call getDeezerEmbedHtml on the decoded inner src
-            // This handles cases where embedly points to another Deezer link (which will then be handled by Step 2)
             return await getDeezerEmbedHtml(decodedInnerSrc);
           }
         }
         // If it's a direct Deezer widget iframe, use it
         if (iframeSrc.includes('widget.deezer.com/widget/')) {
-          return `<div class="deezer-responsive"><iframe scrolling="no" frameborder="0" allowTransparency="true" src="${iframeSrc}"></iframe></div>`;
+          // Use the same attributes as the constructed one for consistency
+          return `<div class="deezer-responsive"><iframe title="deezer-widget" src="${iframeSrc}" width="100%" height="300" frameborder="0" allowtransparency="true" allow="encrypted-media; clipboard-write"></iframe></div>`;
         }
       }
     }
@@ -216,32 +215,41 @@ async function getApplePodcastEmbedHtml(urlToProcess: string): Promise<string | 
 
     const finalApplePodcastUrl = response.url;
 
-    // Step 2: Check if the final URL is an Apple Podcasts URL
+    // Primary method: Construct embed URL if it's a direct podcasts.apple.com link
     if (finalApplePodcastUrl.includes('podcasts.apple.com')) {
-      // Construct the embed URL by replacing the domain
       const embedSrc = finalApplePodcastUrl.replace('https://podcasts.apple.com', 'https://embed.podcasts.apple.com');
-
-      // Use the provided iframe attributes from the example
       return `<div class="apple-podcast-embed-wrapper"><iframe allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" frameborder="0" height="175" style="width:100%;max-width:660px;overflow:hidden;border-radius:10px;" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation" src="${embedSrc}"></iframe></div>`;
     }
 
-    // Fallback: If direct construction failed, try to scrape for an iframe in the HTML
+    // Fallback: Scrape for an iframe if the direct construction didn't apply
     const htmlContent = await response.text();
     const $$ = load(htmlContent);
 
-    const iframe = $$('iframe[src*="embed.podcasts.apple.com"]').first();
+    // Look for iframes that are likely Apple Podcasts embeds
+    const iframe = $$('iframe[src*="podcasts.apple.com/embed"], iframe[src*="itunes.apple.com/embed"]').first();
     if (iframe.length > 0) {
       const iframeSrc = iframe.attr('src');
-      const iframeHeight = iframe.attr('height') || '175';
-      const iframeStyle = iframe.attr('style') || 'width:100%;max-width:660px;overflow:hidden;border-radius:10px;';
-      const iframeAllow = iframe.attr('allow') || 'autoplay *; encrypted-media *; fullscreen *; clipboard-write';
-      const iframeFrameBorder = iframe.attr('frameborder') || '0';
-      const iframeSandbox = iframe.attr('sandbox') || 'allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation';
+      if (iframeSrc) {
+        // Ensure the src is an embeddable Apple Podcasts URL
+        let finalIframeSrc = iframeSrc;
+        if (iframeSrc.includes('podcasts.apple.com') && !iframeSrc.includes('embed.podcasts.apple.com')) {
+          finalIframeSrc = iframeSrc.replace('https://podcasts.apple.com', 'https://embed.podcasts.apple.com');
+        } else if (iframeSrc.includes('itunes.apple.com') && !iframeSrc.includes('embed.podcasts.apple.com')) {
+          // If it's an itunes.apple.com link, we'll use it as is, assuming it's already an embeddable URL.
+          // Direct transformation from itunes.apple.com to embed.podcasts.apple.com is not always straightforward.
+        }
 
-      return `<div class="apple-podcast-embed-wrapper"><iframe allow="${iframeAllow}" frameborder="${iframeFrameBorder}" height="${iframeHeight}" style="${iframeStyle}" sandbox="${iframeSandbox}" src="${iframeSrc}"></iframe></div>`;
+        const iframeHeight = iframe.attr('height') || '175';
+        const iframeStyle = iframe.attr('style') || 'width:100%;max-width:660px;overflow:hidden;border-radius:10px;';
+        const iframeAllow = iframe.attr('allow') || 'autoplay *; encrypted-media *; fullscreen *; clipboard-write';
+        const iframeFrameBorder = iframe.attr('frameborder') || '0';
+        const iframeSandbox = iframe.attr('sandbox') || 'allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation';
+
+        return `<div class="apple-podcast-embed-wrapper"><iframe allow="${iframeAllow}" frameborder="${iframeFrameBorder}" height="${iframeHeight}" style="${iframeStyle}" sandbox="${iframeSandbox}" src="${finalIframeSrc}"></iframe></div>`;
+      }
     }
 
-    return null; // No Apple Podcasts embed found or constructed
+    return null;
   } catch (error) {
     console.error(`Error getting Apple Podcasts embed for ${urlToProcess}:`, error);
     return null;
